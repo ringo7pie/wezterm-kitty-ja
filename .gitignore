@@ -1,0 +1,8 @@
+# 作業中の控え・一時ファイル
+*.tmp
+*.bak
+*.bak-*
+*.moved-backup
+
+# Claude Code の個人設定
+.claude/settings.local.json

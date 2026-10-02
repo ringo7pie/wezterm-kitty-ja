@@ -1,0 +1,2 @@
+# 改行は LF のまま扱う (core.autocrlf = true でも CRLF に変換しない)
+* text=auto eol=lf

@@ -1,0 +1,83 @@
+# WezTerm が起動した pwsh だけで実行される (shell.lua の default_prog)。
+# pwsh は Set-Location してもプロセスのカレントディレクトリを変えないので、
+# 現在のフォルダとプロンプトの位置をエスケープシーケンスで WezTerm に通知する。
+#
+# 呼び出し側は「& 'integration.ps1'」で実行する (ドットソースしない)。
+# 下の StrictMode と $ErrorActionPreference をこのスクリプトのスコープに閉じ込め、
+# 対話セッションの設定を変えないため。
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+if ($env:TERM_PROGRAM -ne 'WezTerm') { return }
+
+function global:Send-KittyJaLocation {
+    param([System.Management.Automation.PathInfo] $PathInfo)
+
+    if ($null -eq $PathInfo -or $PathInfo.Provider.Name -ne 'FileSystem') { return }
+    $providerPath = $PathInfo.ProviderPath
+    $escape = [char]27
+    $bell = [char]7
+    $sequence = ''
+
+    # OSC 7: WezTerm 標準の cwd 通知
+    try {
+        $locationUri = ([System.Uri]::new($providerPath)).AbsoluteUri
+        $sequence += '{0}]7;{1}{0}\' -f $escape, $locationUri
+    } catch {
+        $sequence = ''
+    }
+
+    # ユーザー変数 kitty_ja_cwd: Windows のパスをそのまま渡す (タブ記憶が使う)
+    $encodedPath = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($providerPath))
+    $sequence += '{0}]1337;SetUserVar=kitty_ja_cwd={1}{2}' -f $escape, $encodedPath, $bell
+    [Console]::Write($sequence)
+
+    # タブの既定名を現在のフォルダにする (kitty のシェル統合と同じ見え方)
+    $titlePath = $providerPath
+    $homePath = [Environment]::GetFolderPath('UserProfile')
+    if ($homePath -and $titlePath.StartsWith($homePath, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $titlePath = '~' + $titlePath.Substring($homePath.Length)
+    }
+    try {
+        $Host.UI.RawUI.WindowTitle = $titlePath
+    } catch {
+        # タイトルを変えられないホストでは何もしない
+        return
+    }
+}
+
+# cd の瞬間に通知する。既にハンドラがあれば残したまま追加する
+$locationHandler = [System.EventHandler[System.Management.Automation.LocationChangedEventArgs]] {
+    param($eventSource, $eventArguments)
+    Send-KittyJaLocation $eventArguments.NewPath
+}
+$currentHandler = $ExecutionContext.SessionState.InvokeCommand.LocationChangedAction
+if ($currentHandler) {
+    $ExecutionContext.SessionState.InvokeCommand.LocationChangedAction =
+        [Delegate]::Combine($currentHandler, $locationHandler)
+} else {
+    $ExecutionContext.SessionState.InvokeCommand.LocationChangedAction = $locationHandler
+}
+
+# プロンプトの位置 (OSC 133)。Ctrl+Shift+Z / X のプロンプト間移動が使う。
+# 既存の prompt 関数は置き換えずに包む。
+if (-not (Get-Variable -Name KittyJaOriginalPrompt -Scope Global -ErrorAction Ignore)) {
+    $global:KittyJaOriginalPrompt = $function:prompt
+    function global:prompt {
+        $savedExitCode = Get-Variable -Name LASTEXITCODE -Scope Global -ValueOnly -ErrorAction Ignore
+        $escape = [char]27
+        $promptText = @(& $global:KittyJaOriginalPrompt) -join ''
+        $global:LASTEXITCODE = $savedExitCode
+        ('{0}]133;A{0}\' -f $escape) + $promptText + ('{0}]133;B{0}\' -f $escape)
+    }
+}
+
+# コマンド出力の開始位置 (OSC 133;C)。Ctrl+Shift+G の「直前コマンドの出力」が使う。
+if (Get-Command -Name Set-PSReadLineKeyHandler -ErrorAction Ignore) {
+    Set-PSReadLineKeyHandler -Key Enter -BriefDescription 'KittyJaAcceptLine' -Description 'コマンドを実行し、出力の開始位置を WezTerm に通知する' -ScriptBlock {
+        [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+        [Console]::Write(('{0}]133;C{0}\' -f [char]27))
+    }
+}
+
+Send-KittyJaLocation (Get-Location)
