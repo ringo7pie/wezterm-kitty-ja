@@ -24,11 +24,62 @@ module.session_probe_timeout_ms = 2000
 -- (appearance.lua の hide_tab_bar_if_only_one_tab = true / use_fancy_tab_bar = false に対応)
 module.session_tab_bar_rows = 1
 
-module.shell_program = 'C:\\Program Files\\PowerShell\\7\\pwsh.exe'
+local function file_exists(path)
+  local file = io.open(path, 'rb')
+  if file then
+    file:close()
+    return true
+  end
+  return false
+end
+
+-- Program Files 以下の relative_path にあるファイルを探す。無ければ nil
+local function find_in_program_files(relative_path)
+  for _, variable in ipairs({ 'ProgramW6432', 'ProgramFiles', 'ProgramFiles(x86)' }) do
+    local base = os.getenv(variable)
+    if base and #base > 0 and file_exists(base .. '\\' .. relative_path) then
+      return base .. '\\' .. relative_path
+    end
+  end
+  return nil
+end
+
+-- PowerShell 7 (pwsh.exe) の場所。見つからなければ nil。
+-- 既定のインストール先、PATH の順に探す。Microsoft Store 版はファイルとして開けず見つけられないので、
+-- その場合は環境変数 KITTY_JA_PWSH に pwsh.exe のパスを入れる
+local function find_pwsh()
+  local override = os.getenv('KITTY_JA_PWSH')
+  if override and #override > 0 then
+    return override
+  end
+  local installed = find_in_program_files('PowerShell\\7\\pwsh.exe')
+  if installed then
+    return installed
+  end
+  for directory in (os.getenv('PATH') or ''):gmatch('[^;]+') do
+    local candidate = directory:gsub('[\\/]+$', '') .. '\\pwsh.exe'
+    if file_exists(candidate) then
+      return candidate
+    end
+  end
+  return nil
+end
+
+-- Windows 付属のプログラムは、名前だけで起動せずフルパスで指定する
+-- (名前だけだと、カレントフォルダや PATH にある同名の別のプログラムが起動しうる)
+local system_directory = (os.getenv('SystemRoot') or 'C:\\Windows') .. '\\System32'
+
+module.shell_program = find_pwsh()
+-- PowerShell 7 が無いときに使う Windows PowerShell
+module.fallback_shell_program = system_directory .. '\\WindowsPowerShell\\v1.0\\powershell.exe'
 module.integration_script = wezterm.home_dir .. '\\.config\\wezterm\\kitty_ja\\shell\\integration.ps1'
 
--- colors.txt / memory.json / 設定ファイルを開くエディタ (kitty 側の nano に相当)
-module.editor_command = { 'C:\\Program Files\\Notepad++\\notepad++.exe' }
+-- colors.txt / memory.json / 設定ファイルを開くエディタ (kitty 側の nano に相当)。
+-- Notepad++ があればそれを、無ければメモ帳を使う
+local notepad_plus_plus = find_in_program_files('Notepad++\\notepad++.exe')
+module.editor_command = { notepad_plus_plus or (system_directory .. '\\notepad.exe') }
+-- 「ファイル:行番号」を開くときに行番号の前へ付ける引数。行を指定して開けないエディタでは nil
+module.editor_line_option = notepad_plus_plus and '-n' or nil
 
 module.font_size = 11
 -- kitty の既定キーは 2.0 刻み、commands.tsv (パレット) は 1.0 刻み

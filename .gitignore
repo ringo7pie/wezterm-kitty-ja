@@ -4,5 +4,8 @@
 *.bak-*
 *.moved-backup
 
+# 配布用 zip の出力先 (tools\New-Package.ps1)
+dist/
+
 # Claude Code の個人設定
 .claude/settings.local.json

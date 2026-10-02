@@ -141,11 +141,108 @@ module.paste_from_selection = guarded(function(window, pane)
   end
 end)
 
+-- ---------------------------------------------------------------- 画面の文字列を開く
+
+-- 画面の文字列は、ssh 先や表示したファイルが自由に出せる。それを Windows の「開く」に渡すと、
+-- 実行ファイルなら実行され、ネットワークのパスなら相手へ接続して認証情報を送りうる。
+-- 開いてよいのは http(s) の URL と、この PC のドライブにある実行形式でないファイル・フォルダだけにする
+
+-- 「開く」と実行される種類の拡張子 (環境変数 PATHEXT の内容もこれに足す)
+local EXECUTABLE_EXTENSIONS = {
+  'appref-ms', 'application', 'bat', 'chm', 'cmd', 'com', 'cpl', 'exe', 'gadget', 'hta', 'inf', 'ins', 'isp',
+  'jar', 'js', 'jse', 'lnk', 'msc', 'msi', 'msp', 'mst', 'pif', 'ps1', 'ps1xml', 'ps2', 'psc1', 'psd1', 'psm1',
+  'py', 'pyw', 'reg', 'scf', 'scr', 'sct', 'settingcontent-ms', 'url', 'vb', 'vbe', 'vbs', 'ws', 'wsc', 'wsf',
+  'wsh', 'xll',
+}
+
+local function executable_extension_set()
+  local extensions = {}
+  for _, extension in ipairs(EXECUTABLE_EXTENSIONS) do
+    extensions[extension] = true
+  end
+  for extension in (os.getenv('PATHEXT') or ''):gmatch('%.([^;]+)') do
+    extensions[extension:lower()] = true
+  end
+  return extensions
+end
+
+local function is_web_url(text)
+  return text:match('^https?://[^%s%c]+$') ~= nil
+end
+
+local function is_absolute_path(path)
+  return path:match('^%a:[\\/]') ~= nil or path:match('^[\\/][\\/]') ~= nil
+end
+
+-- 画面の文字列を、この PC のドライブにあるパスへ直す。直せなければ nil。
+-- 相対パスは、ペインのフォルダが分かるときだけ直す
+local function resolve_path(pane, path)
+  local tab_memory = require 'kitty_ja.tab_memory'
+  local resolved
+  if path:sub(1, 1) == '~' then
+    resolved = settings.home_dir .. path:sub(2)
+  elseif is_absolute_path(path) then
+    resolved = path
+  else
+    local cwd = tab_memory.pane_cwd(pane)
+    if not cwd then
+      return nil
+    end
+    resolved = cwd .. '\\' .. path
+  end
+  resolved = tab_memory.normalize_path(resolved)
+  -- ドライブ文字より後ろの ':' (代替データストリーム) やワイルドカードなど、ファイル名に使えない文字は通さない
+  if tab_memory.is_local_path(resolved) and not resolved:sub(3):find('[:*?"<>|]') then
+    return resolved
+  end
+  return nil
+end
+
+local function is_directory(path)
+  local ok = pcall(wezterm.read_dir, path)
+  return ok
+end
+
+local function is_readable_file(path)
+  local file = io.open(path, 'rb')
+  if file then
+    file:close()
+    return true
+  end
+  return false
+end
+
+-- 既定のプログラムで開く。フォルダか、実行形式でない実在のファイルだけを開く
+local function open_local_path(path)
+  if is_directory(path) then
+    wezterm.open_with(path)
+    return
+  end
+  local extension = path:match('%.([^.\\]+)$')
+  -- 拡張子の無い名前は、Windows が .exe などを補って実行することがあるので開かない
+  if not extension or executable_extension_set()[extension:lower()] or not is_readable_file(path) then
+    log('開きません (実行形式か、存在しないファイル): ' .. path)
+    return
+  end
+  wezterm.open_with(path)
+end
+
 -- pass_selection_to_program: 選択内容を既定のプログラムで開く
 module.pass_selection_to_program = guarded(function(window, pane)
   local text = window:get_selection_text_for_pane(pane)
-  if text and #text > 0 then
+  if not text or #text == 0 then
+    return
+  end
+  text = text:gsub('^%s+', ''):gsub('%s+$', '')
+  if is_web_url(text) then
     wezterm.open_with(text)
+    return
+  end
+  local path = resolve_path(pane, text)
+  if path then
+    open_local_path(path)
+  else
+    log('開きません (URL でも、この PC のドライブのパスでもない)')
   end
 end)
 
@@ -192,25 +289,6 @@ local function paste_into_pane(_window, pane, text)
   pane:send_paste(text)
 end
 
-local function is_absolute_path(path)
-  return path:match('^%a:[\\/]') ~= nil or path:match('^[\\/][\\/]') ~= nil
-end
-
-local function resolve_path(pane, path)
-  if path:sub(1, 1) == '~' then
-    return settings.home_dir .. path:sub(2)
-  end
-  if is_absolute_path(path) then
-    return path
-  end
-  local tab_memory = require 'kitty_ja.tab_memory'
-  local cwd = tab_memory.pane_cwd(pane)
-  if cwd then
-    return cwd .. '\\' .. path
-  end
-  return path
-end
-
 local URL_PATTERNS = { [[https?://[^\s"'<>]+]] }
 local PATH_PATTERNS = {
   [[(?:[A-Za-z]:[\\/]|~[\\/]|\.{1,2}[\\/]|[\\/])?(?:[\w.@%+\-]+[\\/])+[\w.@%+\-]*]],
@@ -223,13 +301,20 @@ local LINE_NUMBER_PATTERNS = { [[(?:[A-Za-z]:)?[\w.@%+\-\\/]+\.\w+:\d+]] }
 
 -- open_url_with_hints
 module.hint_open_url = quick_select('URL を開く', URL_PATTERNS, function(_window, _pane, text)
-  wezterm.open_with(text)
+  if is_web_url(text) then
+    wezterm.open_with(text)
+  end
 end)
 -- kitten hints --type path --program -
 module.hint_insert_path = quick_select('パスを挿入', PATH_PATTERNS, paste_into_pane)
 -- kitten hints --type path
 module.hint_open_path = quick_select('パスを開く', PATH_PATTERNS, function(_window, pane, text)
-  wezterm.open_with(resolve_path(pane, text))
+  local path = resolve_path(pane, text)
+  if path then
+    open_local_path(path)
+  else
+    log('開きません (この PC のドライブのパスに直せない): ' .. text)
+  end
 end)
 -- kitten hints --type line --program -
 module.hint_insert_line = quick_select('行を挿入', LINE_PATTERNS, paste_into_pane)
@@ -239,16 +324,25 @@ module.hint_insert_word = quick_select('単語を挿入', WORD_PATTERNS, paste_i
 module.hint_insert_hash = quick_select('ハッシュを挿入', HASH_PATTERNS, paste_into_pane)
 -- kitten hints --type linenum: ファイル:行番号 をエディタで開く
 module.hint_open_line_number = quick_select('ファイルの行を開く', LINE_NUMBER_PATTERNS, function(_window, pane, text)
-  local path, line_number = text:match('^(.*):(%d+)$')
-  if not path then
+  local raw_path, line_number = text:match('^(.*):(%d+)$')
+  if not raw_path then
+    return
+  end
+  -- エディタに渡すのは、この PC のドライブにある実在のファイルだけ
+  -- (ネットワークのパスや、オプションに見える文字列をエディタの引数にしない)
+  local path = resolve_path(pane, raw_path)
+  if not path or not is_readable_file(path) then
+    log('開きません (この PC のドライブに無いファイル): ' .. raw_path)
     return
   end
   local command = {}
   for _, argument in ipairs(settings.editor_command) do
     table.insert(command, argument)
   end
-  table.insert(command, resolve_path(pane, path))
-  table.insert(command, '-n' .. line_number)
+  table.insert(command, path)
+  if settings.editor_line_option then
+    table.insert(command, settings.editor_line_option .. line_number)
+  end
   wezterm.background_child_process(command)
 end)
 

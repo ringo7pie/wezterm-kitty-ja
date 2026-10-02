@@ -29,6 +29,24 @@ function module.save(store)
   wezterm.GLOBAL[GLOBAL_KEY] = wezterm.json_encode(store)
 end
 
+local TOKEN_KEY = 'kitty_ja_shell_token'
+
+-- シェル連携の合言葉。WezTerm のプロセスごとに 1 個作り、環境変数で pwsh へ渡す (shell.lua)。
+-- integration.ps1 はフォルダの通知にこれを添える。端末に文字を出すだけのもの (ssh 先や cat したファイル) は
+-- 合言葉を知らないので、通知を偽装できない
+function module.shell_token()
+  local token = wezterm.GLOBAL[TOKEN_KEY]
+  if type(token) ~= 'string' or #token == 0 then
+    local parts = {}
+    for _ = 1, 4 do
+      table.insert(parts, string.format('%08x', math.random(0, 0xFFFFFFFF)))
+    end
+    token = table.concat(parts)
+    wezterm.GLOBAL[TOKEN_KEY] = token
+  end
+  return token
+end
+
 local RESTORING_KEY = 'kitty_ja_restoring_since'
 -- 復元が途中で止まっても、この秒数で復元中の扱いを終える
 local RESTORING_TIMEOUT_SECONDS = 60

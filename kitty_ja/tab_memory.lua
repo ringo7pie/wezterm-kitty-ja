@@ -12,6 +12,8 @@ local state = require 'kitty_ja.state'
 local module = {}
 
 local COLOR_FIELDS = { 'active_fg', 'active_bg', 'inactive_fg', 'inactive_bg' }
+-- フォルダのパスとして受け付ける長さの上限 (バイト数)。Windows の長いパスの上限 32767 文字より十分短くてよい
+local MAX_PATH_LENGTH = 4096
 -- 初回処理のタイマーが設定の再読み込みで失われたときに、定期処理で拾い直すまでの秒数
 local PENDING_FALLBACK_SECONDS = 2
 
@@ -145,21 +147,23 @@ local function json_string(text)
   return '"' .. escaped .. '"'
 end
 
--- memory.json を読む。戻り値は { フォルダ(正規化済み) -> look }
+-- memory.json を読む。戻り値は { フォルダ(正規化済み) -> look } と、ファイルが壊れているかどうか。
+-- 壊れているとき (手で編集して JSON の書式を崩したとき) は、呼び出し側は上書きしないこと
 local function load_folders()
   local folders = {}
   local file = io.open(settings.memory_file, 'rb')
   if not file then
-    return folders
+    return folders, false
   end
   local content = file:read('a') or ''
   file:close()
+  if not content:find('%S') then
+    return folders, false
+  end
   local ok, data = pcall(wezterm.json_parse, content)
   if not ok or type(data) ~= 'table' or type(data.folders) ~= 'table' then
-    if #content > 0 then
-      log(settings.memory_file .. ' を読めません')
-    end
-    return folders
+    log(settings.memory_file .. ' を読めません。直すまで、タブ名・色の記憶は保存しません')
+    return folders, true
   end
   for raw_path, entry in pairs(data.folders) do
     local path = module.normalize_path(raw_path)
@@ -171,7 +175,7 @@ local function load_folders()
       folders[path] = look
     end
   end
-  return folders
+  return folders, false
 end
 
 -- 手で編集するファイルなので、フォルダ順に並べて整形して書く (kitty 側と同じ書式)
@@ -257,7 +261,11 @@ local function find_stored_path(folders, cwd)
 end
 
 local function remember(cwd, look)
-  local folders = load_folders()
+  local folders, broken = load_folders()
+  if broken then
+    -- 読めなかった内容を、この 1 件だけのファイルで上書きしない
+    return
+  end
   local stored_path = find_stored_path(folders, cwd)
   if is_default_look(look) then
     -- 既定の見た目 = 記憶なし
@@ -280,48 +288,73 @@ local function percent_decode(text)
   return decoded
 end
 
--- ペインで動くシェルの現在のフォルダ。integration.ps1 が通知したユーザー変数を優先する
-function module.pane_cwd(pane)
-  if not pane then
-    return nil
-  end
+-- 「C:\...」の形の、ドライブ文字で始まるパスか。
+-- ネットワークのパス (\\server\share) やデバイスのパスは、開こうとするだけで相手へ接続して認証情報を送りうる。
+-- 自動で開く処理 (セッションの復元、hints) は、この検査を通ったパスだけを使う
+function module.is_local_path(path)
+  return type(path) == 'string'
+    and #path <= MAX_PATH_LENGTH
+    and path:match('^%a:\\') ~= nil
+    and path:find('%c') == nil
+end
+
+-- integration.ps1 が通知したフォルダ。値は「合言葉|パス」。合言葉が合わない値は偽装とみなして無視する
+local function notified_cwd(pane)
   local ok, user_vars = pcall(function()
     return pane:get_user_vars()
   end)
-  if ok and type(user_vars) == 'table' and type(user_vars.kitty_ja_cwd) == 'string' and #user_vars.kitty_ja_cwd > 0 then
-    return module.normalize_path(user_vars.kitty_ja_cwd)
+  if not ok or type(user_vars) ~= 'table' then
+    return nil
   end
+  local value = user_vars.kitty_ja_cwd
+  if type(value) ~= 'string' or #value == 0 or #value > MAX_PATH_LENGTH + 64 then
+    return nil
+  end
+  local token, raw_path = value:match('^([^|]*)|(.*)$')
+  if token ~= state.shell_token() then
+    return nil
+  end
+  local path = module.normalize_path(raw_path)
+  if not path or #path > MAX_PATH_LENGTH or path:find('%c') then
+    return nil
+  end
+  return path
+end
 
+-- OSC 7 か、シェルのプロセスから WezTerm が調べたフォルダ。
+-- OSC 7 は端末に文字を出すだけで誰でも送れるので、ドライブ文字で始まるパスだけを受け付ける
+local function reported_cwd(pane)
   local cwd_ok, cwd = pcall(function()
     return pane:get_current_working_dir()
   end)
   if not cwd_ok or not cwd then
     return nil
   end
+  local raw_path = nil
   if type(cwd) == 'string' then
-    local host, path = cwd:match('^file://([^/]*)(/.*)$')
-    if not path then
-      return nil
-    end
-    path = percent_decode(path)
-    if host and #host > 0 and host:lower() ~= 'localhost' and not path:match('^/%a:') then
-      return module.normalize_path('//' .. host .. path)
-    end
-    return module.normalize_path(path)
-  end
-  local path_ok, file_path = pcall(function()
-    return cwd.file_path
-  end)
-  if path_ok and type(file_path) == 'string' then
-    local host_ok, host = pcall(function()
-      return cwd.host
+    local encoded_path = cwd:match('^file://[^/]*(/.*)$')
+    raw_path = encoded_path and percent_decode(encoded_path) or nil
+  else
+    local path_ok, file_path = pcall(function()
+      return cwd.file_path
     end)
-    if host_ok and type(host) == 'string' and #host > 0 and host:lower() ~= 'localhost' and not file_path:match('^/%a:') then
-      return module.normalize_path('//' .. host .. file_path)
+    if path_ok and type(file_path) == 'string' then
+      raw_path = file_path
     end
-    return module.normalize_path(file_path)
+  end
+  local path = module.normalize_path(raw_path)
+  if module.is_local_path(path) then
+    return path
   end
   return nil
+end
+
+-- ペインで動くシェルの現在のフォルダ。integration.ps1 が通知したユーザー変数を優先する
+function module.pane_cwd(pane)
+  if not pane then
+    return nil
+  end
+  return notified_cwd(pane) or reported_cwd(pane)
 end
 
 local function tab_cwd(tab)

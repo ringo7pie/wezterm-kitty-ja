@@ -1,2 +1,4 @@
 # 改行は LF のまま扱う (core.autocrlf = true でも CRLF に変換しない)
 * text=auto eol=lf
+# バッチファイルは CRLF でないと cmd.exe が正しく読めないことがある
+*.cmd text eol=crlf

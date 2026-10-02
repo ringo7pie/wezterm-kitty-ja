@@ -220,7 +220,8 @@ local function pane_cwd_for_save(pane, pane_cache, alive_panes)
     entry = {}
   end
   local cwd = tab_memory.pane_cwd(pane)
-  if cwd then
+  -- ネットワークのパス (\\server\share) は保存しない。次回の起動時に自動で接続しにいくことになるため
+  if cwd and tab_memory.is_local_path(cwd) then
     entry.last = cwd
   else
     cwd = entry.last
@@ -441,11 +442,17 @@ local function first_leaf(node)
   return node
 end
 
+-- 葉に保存されたフォルダ。ドライブ文字で始まるパスだけを使う。
+-- それ以外 (ネットワークのパスなど) は、存在の確認もせずホームで開く
 local function leaf_cwd(leaf)
   if type(leaf) ~= 'table' then
     return nil
   end
-  return tab_memory.normalize_path(leaf.cwd)
+  local path = tab_memory.normalize_path(leaf.cwd)
+  if tab_memory.is_local_path(path) then
+    return path
+  end
+  return nil
 end
 
 local function collect_dirs(node, dirs)

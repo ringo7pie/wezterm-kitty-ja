@@ -10,6 +10,12 @@ $ErrorActionPreference = 'Stop'
 
 if ($env:TERM_PROGRAM -ne 'WezTerm') { return }
 
+# WezTerm が環境変数で渡す合言葉。フォルダの通知に添えて、このシェルが出した通知だと WezTerm 側が確かめる。
+# 端末に文字を出すだけのもの (ssh 先や表示したファイル) が通知を偽装できないようにするため。
+# 子プロセスへ渡らないよう、読んだら環境変数から消す
+$global:KittyJaToken = [string] $env:KITTY_JA_TOKEN
+Remove-Item -LiteralPath Env:KITTY_JA_TOKEN -ErrorAction Ignore
+
 function global:Send-KittyJaLocation {
     param([System.Management.Automation.PathInfo] $PathInfo)
 
@@ -27,8 +33,9 @@ function global:Send-KittyJaLocation {
         $sequence = ''
     }
 
-    # ユーザー変数 kitty_ja_cwd: Windows のパスをそのまま渡す (タブ記憶が使う)
-    $encodedPath = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($providerPath))
+    # ユーザー変数 kitty_ja_cwd: 「合言葉|Windows のパス」を渡す (タブ記憶とタブの復元が使う)
+    $notification = '{0}|{1}' -f $global:KittyJaToken, $providerPath
+    $encodedPath = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($notification))
     $sequence += '{0}]1337;SetUserVar=kitty_ja_cwd={1}{2}' -f $escape, $encodedPath, $bell
     [Console]::Write($sequence)
 
@@ -65,6 +72,13 @@ if (-not (Get-Variable -Name KittyJaOriginalPrompt -Scope Global -ErrorAction Ig
     $global:KittyJaOriginalPrompt = $function:prompt
     function global:prompt {
         $savedExitCode = Get-Variable -Name LASTEXITCODE -Scope Global -ValueOnly -ErrorAction Ignore
+        # プロンプトのたびにフォルダを通知し直す。実行したプログラムが偽の通知を出していても、ここで正しい値に戻る
+        try {
+            Send-KittyJaLocation (Get-Location)
+        } catch {
+            # 通知に失敗しても、プロンプトは表示する
+            $null = $_
+        }
         $escape = [char]27
         $promptText = @(& $global:KittyJaOriginalPrompt) -join ''
         $global:LASTEXITCODE = $savedExitCode

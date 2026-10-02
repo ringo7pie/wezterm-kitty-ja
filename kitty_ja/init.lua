@@ -1,5 +1,5 @@
 -- kitty-ja-shortcuts 入りの kitty と同じ動作・同じショートカットキーにするための WezTerm 設定。
--- 移植元: U:\Proj\kitty-ja-shortcuts (kitty 0.49.1 用のアドオン)
+-- 移植元: kitty-ja-shortcuts (kitty 0.49.1 用のアドオン)
 --
 -- 使い方 (.wezterm.lua):
 --   local config = wezterm.config_builder()
