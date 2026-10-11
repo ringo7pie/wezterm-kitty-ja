@@ -120,6 +120,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
   シンボリックリンクには開発者モードか管理者権限が要り、作れないときは `.wezterm.lua` だけコピーになる。
 - `<ホーム>\.config\wezterm\wezterm.lua` という名前のファイルは作らない (`.wezterm.lua` より優先されてしまう)。
 
+NAS の共有フォルダから clone すると、フォルダの所有者が違うため `dubious ownership` で拒否されることがある。
+1 回だけ通すなら `git -c safe.directory=<リモートの URL> clone <リモートの URL>`、
+恒久的に通すなら `git config --global --add safe.directory <リモートの URL>` を使う。
+
+Claude Code の開発環境 (hook・スキル・規則・グローバルの指示) は `claude-config\` にある。
+他の PC で再現する手順は `claude-config\README.md` を見る。
+
 配布用の zip は PowerShell 7 で次を実行して作る。`dist\` に zip と SHA-256 が出力される。
 
 ```powershell

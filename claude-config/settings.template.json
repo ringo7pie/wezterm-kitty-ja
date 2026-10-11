@@ -1,0 +1,97 @@
+{
+  "env": {
+    "CLAUDE_CODE_USE_POWERSHELL_TOOL": "1"
+  },
+  "defaultShell": "powershell",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "medium",
+      "autoCompactWindow": "auto"
+    },
+    "claude-sonnet-5-5": {
+      "effortLevel": "xhigh",
+      "autoCompactWindow": "auto"
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"$HOME\\.claude\\hooks\\protect-bronze.ps1\"; exit $LASTEXITCODE",
+            "shell": "powershell",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit|PowerShell|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"$HOME\\.claude\\hooks\\protect-workspace.ps1\"; exit $LASTEXITCODE",
+            "shell": "powershell",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"$HOME\\.claude\\hooks\\win-notify.ps1\" -Kind Question; exit $LASTEXITCODE",
+            "shell": "powershell",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"$HOME\\.claude\\hooks\\post-edit-check.ps1\"; exit $LASTEXITCODE",
+            "shell": "powershell",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"$HOME\\.claude\\hooks\\win-notify.ps1\" -Kind Stop; exit $LASTEXITCODE",
+            "shell": "powershell",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|elicitation_dialog",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "& \"$HOME\\.claude\\hooks\\win-notify.ps1\" -Kind Notification; exit $LASTEXITCODE",
+            "shell": "powershell",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "autoMode": {
+    "environment": [
+      "**Protected user workspace**: any folder named `zzz-Temp` is the user's own working folder — read-only for Claude Code: never write, create, delete, move, copy into, stage, commit, or push anything under it, even when the user says to commit or push \"everything\"; Claude's own temporary files go to the session scratchpad",
+      "shell commands in this environment should use PowerShell 7 syntax (not bash), per the user's global CLAUDE.md preference"
+    ]
+  }
+}
