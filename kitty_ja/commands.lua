@@ -42,6 +42,18 @@ local open_palette = callback(function(window, pane)
   require('kitty_ja.palette').show(window, pane)
 end)
 
+-- 修飾キーなしの PageUp / PageDown。通常の画面ではログを 1 ページ分スクロールする。
+-- vim や less など代替画面 (alternate screen) を使うアプリの中では、そのアプリへキーをそのまま渡す
+local function scroll_page_or_pass_through(direction, key_name)
+  return callback(function(window, pane)
+    if pane:is_alt_screen_active() then
+      window:perform_action(act.SendKey { key = key_name }, pane)
+    else
+      window:perform_action(act.ScrollByPage(direction), pane)
+    end
+  end)
+end
+
 local open_documentation = callback(function(_window, _pane)
   wezterm.open_with(settings.documentation_url)
 end)
@@ -104,6 +116,9 @@ module.entries = {
   { id = 'scroll_line_down', keys = { 'ctrl+shift+down', 'ctrl+shift+j' }, label = 'Ctrl+Shift+Down', name = '1行下へスクロール', yomi = '1 gyou shita he sukuro-ru', category = 'スクロール・履歴', action = act.ScrollByLine(1) },
   { id = 'scroll_page_up', keys = { 'ctrl+shift+pageup' }, label = 'Ctrl+Shift+PageUp', name = '1ページ上へスクロール', yomi = '1 pe-ji ue he sukuro-ru', category = 'スクロール・履歴', action = act.ScrollByPage(-1) },
   { id = 'scroll_page_down', keys = { 'ctrl+shift+pagedown' }, label = 'Ctrl+Shift+PageDown', name = '1ページ下へスクロール', yomi = '1 pe-ji shita he sukuro-ru', category = 'スクロール・履歴', action = act.ScrollByPage(1) },
+  -- kitty には無い、この設定だけの割り当て (kitty では PageUp / PageDown はそのままアプリへ渡る)
+  { id = 'scroll_log_page_up', keys = { 'pageup' }, label = 'PageUp', name = 'ログを1ページ上へスクロール (全画面アプリ以外)', yomi = 'rogu wo 1 pe-ji ue he sukuro-ru zengamen apuri igai', category = 'スクロール・履歴', action = scroll_page_or_pass_through(-1, 'PageUp') },
+  { id = 'scroll_log_page_down', keys = { 'pagedown' }, label = 'PageDown', name = 'ログを1ページ下へスクロール (全画面アプリ以外)', yomi = 'rogu wo 1 pe-ji shita he sukuro-ru zengamen apuri igai', category = 'スクロール・履歴', action = scroll_page_or_pass_through(1, 'PageDown') },
   { id = 'scroll_home', keys = { 'ctrl+shift+home' }, label = 'Ctrl+Shift+Home', name = '履歴の先頭へ移動', yomi = 'rireki no sentou he idou', category = 'スクロール・履歴', action = act.ScrollToTop },
   { id = 'scroll_end', keys = { 'ctrl+shift+end' }, label = 'Ctrl+Shift+End', name = '履歴の末尾へ移動', yomi = 'rireki no matsubi he idou', category = 'スクロール・履歴', action = act.ScrollToBottom },
   { id = 'scroll_to_previous_prompt', keys = { 'ctrl+shift+z' }, label = 'Ctrl+Shift+Z', name = '前のシェルプロンプトへ', yomi = 'mae no sheru puronputo he', category = 'スクロール・履歴', action = act.ScrollToPrompt(-1) },

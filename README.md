@@ -72,6 +72,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 - **タブ色**: Ctrl+Shift+Alt+数字。色の定義は `colors.txt` (Ctrl+Shift+Alt+E で開く)。
 - **タブの復元**: WezTerm を閉じて開き直すと、タブ・ペイン分割・フォルダ・タブ名・タブ色が戻る。
   実行中だったプログラムと画面の文字は戻らない。
+- **ログのスクロール**: PageUp / PageDown で 1 ページずつスクロールする。vim や less のような全画面のアプリの中では、
+  そのアプリへキーをそのまま渡す。Ctrl+Shift+PageUp / PageDown は従来どおり。
+- **起動のしかた**: スタートメニューの「WezTerm」(`wezterm-gui.exe`) から起動する。
+  コンソール版の `wezterm.exe` を Explorer (「ファイル名を指定して実行」やアイコンのダブルクリック) から起動すると、
+  WezTerm の窓とは別に、中身が空で入力できない「WezTerm」という名前のコンソールの窓 (Windows Terminal) が一緒に開く。
+  この窓は `wezterm.exe` の起動時に Windows が作るので、WezTerm の設定では出ないようにできない。
 
 ## 安全のための制限
 
