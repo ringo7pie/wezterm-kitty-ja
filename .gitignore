@@ -14,3 +14,6 @@ dist/
 # 10-silver/ と 00-system/ はコミット対象。
 knowledge/20-bronze/
 knowledge/30-gold/
+
+# ユーザーの作業フォルダ (Claude Code は読み取り専用)
+zzz-Temp/
