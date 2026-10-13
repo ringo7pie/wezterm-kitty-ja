@@ -89,8 +89,8 @@
 | 1ページ下へスクロール | Ctrl+Shift+PageDown | `scroll_page_down` |
 | ログを1ページ上へスクロール (全画面アプリ以外) | PageUp | `scroll_log_page_up` |
 | ログを1ページ下へスクロール (全画面アプリ以外) | PageDown | `scroll_log_page_down` |
-| ログの先頭へ移動 (全画面アプリ以外) | Home | `scroll_log_top` |
-| ログの末尾へ移動 (全画面アプリ以外) | End | `scroll_log_bottom` |
+| ログの先頭へ移動 (全画面アプリ以外) | Ctrl+Home | `scroll_log_top` |
+| ログの末尾へ移動 (全画面アプリ以外) | Ctrl+End | `scroll_log_bottom` |
 | 履歴の先頭へ移動 | Ctrl+Shift+Home | `scroll_home` |
 | 履歴の末尾へ移動 | Ctrl+Shift+End | `scroll_end` |
 | 前のシェルプロンプトへ | Ctrl+Shift+Z | `scroll_to_previous_prompt` |
@@ -98,7 +98,7 @@
 | スクロールバックを表示 (コピーモード) | Ctrl+Shift+H | `show_scrollback` |
 | 直前コマンドの出力をコピー | Ctrl+Shift+G | `show_last_command_output` |
 
-- 修飾キーなしの PageUp / PageDown / Home / End の挙動は、専用の節 (下記) で解説する。
+- 修飾キーなしの PageUp / PageDown と Ctrl+Home / Ctrl+End の挙動は、専用の節 (下記) で解説する。
 - `scroll_to_previous_prompt` / `scroll_to_next_prompt` / `show_last_command_output` は、シェル側が OSC 133 でプロンプト位置を通知していることに依存する (`kitty_ja\shell\integration.ps1` が送る)。通知が来ていない場合、`show_last_command_output` は何もしない (コード上、ゾーンが 0 件なら処理を終える)。
 
 ## コピー・貼り付け (4件)
@@ -283,19 +283,20 @@ KEY | 名前 | 選択中背景色 | 非選択背景色 | 選択中文字色(省�
 
 ---
 
-## 修飾キーなしの PageUp / PageDown / Home / End
+## 修飾キーなしの PageUp / PageDown と Ctrl+Home / Ctrl+End
 
-`commands.lua` のコメントに「kitty には無い、この設定だけの割り当て」とある (kitty では、修飾キーなしの PageUp / PageDown / Home / End はそのままアプリへ渡る)。
+`commands.lua` のコメントに「kitty には無い、この設定だけの割り当て」とある (kitty では、修飾キーなしの PageUp / PageDown と Ctrl+Home / Ctrl+End はそのままアプリへ渡る)。
 
-実装は `scroll_or_pass_through(scroll_action, key_name)` という関数で、`pane:is_alt_screen_active()` (代替画面 = alternate screen を使っているか) によって動作を分ける。
+実装は `scroll_or_pass_through(scroll_action, key_name, mods)` という関数で、`pane:is_alt_screen_active()` (代替画面 = alternate screen を使っているか) によって動作を分ける。
 
-| 画面の状態 | PageUp | PageDown | Home | End |
+| 画面の状態 | PageUp | PageDown | Ctrl+Home | Ctrl+End |
 |---|---|---|---|---|
 | 通常画面 (alt screen でない) | 1ページ上へスクロール (`ScrollByPage(-1)`) | 1ページ下へスクロール (`ScrollByPage(1)`) | ログの先頭へ移動 (`ScrollToTop`) | ログの末尾へ移動 (`ScrollToBottom`) |
-| 代替画面 (vim / less など全画面アプリ) | そのアプリへ `PageUp` キーをそのまま渡す | そのアプリへ `PageDown` キーをそのまま渡す | そのアプリへ `Home` キーをそのまま渡す | そのアプリへ `End` キーをそのまま渡す |
+| 代替画面 (vim / less など全画面アプリ) | そのアプリへ `PageUp` キーをそのまま渡す | そのアプリへ `PageDown` キーをそのまま渡す | そのアプリへ `Ctrl+Home` キーをそのまま渡す | そのアプリへ `Ctrl+End` キーをそのまま渡す |
 
 - Ctrl+Shift+PageUp / PageDown / Home / End (上の「スクロール・履歴」節の `scroll_page_up` 等) は、この分岐を持たず、常に通常のスクロール動作になる。
-- この割り当てが入っているため、シェルの入力行 (コマンドラインの編集中) で Home / End を押しても、WezTerm 側がキーを受け取ってログの先頭・末尾へ移動してしまい、行頭・行末への移動には使えない (README.md に明記)。元に戻すには `commands.lua` の `scroll_log_top` と `scroll_log_bottom` の 2 行を消す。
+- 修飾キーなしの Home / End は割り当てていない。シェルの入力行 (コマンドラインの編集中) で、行頭・行末への移動にそのまま使える。
+- Ctrl+Home / Ctrl+End を WezTerm が受け取るので、PowerShell (PSReadLine) の既定の割り当て (Ctrl+Home = `BackwardDeleteInput`、Ctrl+End = `ForwardDeleteInput`。`Get-PSReadLineKeyHandler` で確認した) は、シェルの入力行では使えない。元に戻すには `commands.lua` の `scroll_log_top` と `scroll_log_bottom` の 2 行を消す。
 
 ---
 

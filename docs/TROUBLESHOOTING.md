@@ -18,7 +18,7 @@
 | タブ名・タブ色の記憶と、タブの復元先のフォルダが働かない | PowerShell 7 の実行ポリシーが `Restricted` か `AllSigned` だと、シェル連携スクリプトを実行できません。`Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` を PowerShell 7 で実行します |
 | PowerShell 7 が Microsoft Store 版で、設定側が見つけられない | ユーザーの環境変数 `KITTY_JA_PWSH` に `pwsh.exe` のパスを設定します (インストーラーがパスを表示します) |
 | 起動すると、中身が空で入力できない「WezTerm」という窓が一緒に開く | コンソール版の `wezterm.exe` を Explorer から起動したときに、Windows が作る窓です。設定では消せません。スタートメニューの「WezTerm」(`wezterm-gui.exe`) から起動します |
-| シェルの入力行で Home / End が行頭・行末に動かない | 修飾キーなしの Home / End を、ログの先頭・末尾への移動に割り当てているためです。戻すには `kitty_ja\commands.lua` の `scroll_log_top` と `scroll_log_bottom` の 2 行を消します |
+| シェルの入力行で Ctrl+Home / Ctrl+End が「カーソルより前 / 後ろを削除」にならない | Ctrl+Home / Ctrl+End を、ログの先頭・末尾への移動に割り当てているためです (PowerShell の PSReadLine の既定では、この 2 つが入力行の削除です)。戻すには `kitty_ja\commands.lua` の `scroll_log_top` と `scroll_log_bottom` の 2 行を消します。修飾キーなしの Home / End は割り当てていないので、行頭・行末への移動はそのまま使えます |
 | ネットワークのフォルダにいたタブが、ホームで復元される | 起動のたびに外部へ自動で接続するのを避けるため、ドライブ文字で始まるフォルダだけを復元します。仕様です |
 | 設定を変えたのに反映されない | `.wezterm.lua` と `kitty_ja\` を書き換えると自動で読み直されます。手動なら Ctrl+Shift+F5 です。リンクではなくコピーでインストールしたときは、リポジトリを直しただけでは WezTerm に反映されません (コピーし直すか、`-Link` で入れ直します) |
 

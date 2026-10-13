@@ -42,12 +42,13 @@ local open_palette = callback(function(window, pane)
   require('kitty_ja.palette').show(window, pane)
 end)
 
--- 修飾キーなしの PageUp / PageDown / Home / End。通常の画面ではログをスクロールする。
+-- 修飾キーなしの PageUp / PageDown と、Ctrl+Home / Ctrl+End。通常の画面ではログをスクロールする。
 -- vim や less など代替画面 (alternate screen) を使うアプリの中では、そのアプリへキーをそのまま渡す
-local function scroll_or_pass_through(scroll_action, key_name)
+-- (修飾キーなしの Home / End は割り当てず、シェルの入力行で行頭・行末へ移動できるようにしてある)
+local function scroll_or_pass_through(scroll_action, key_name, mods)
   return callback(function(window, pane)
     if pane:is_alt_screen_active() then
-      window:perform_action(act.SendKey { key = key_name }, pane)
+      window:perform_action(act.SendKey { key = key_name, mods = mods or 'NONE' }, pane)
     else
       window:perform_action(scroll_action, pane)
     end
@@ -116,11 +117,11 @@ module.entries = {
   { id = 'scroll_line_down', keys = { 'ctrl+shift+down', 'ctrl+shift+j' }, label = 'Ctrl+Shift+Down', name = '1行下へスクロール', yomi = '1 gyou shita he sukuro-ru', category = 'スクロール・履歴', action = act.ScrollByLine(1) },
   { id = 'scroll_page_up', keys = { 'ctrl+shift+pageup' }, label = 'Ctrl+Shift+PageUp', name = '1ページ上へスクロール', yomi = '1 pe-ji ue he sukuro-ru', category = 'スクロール・履歴', action = act.ScrollByPage(-1) },
   { id = 'scroll_page_down', keys = { 'ctrl+shift+pagedown' }, label = 'Ctrl+Shift+PageDown', name = '1ページ下へスクロール', yomi = '1 pe-ji shita he sukuro-ru', category = 'スクロール・履歴', action = act.ScrollByPage(1) },
-  -- kitty には無い、この設定だけの割り当て (kitty では PageUp / PageDown / Home / End はそのままアプリへ渡る)
+  -- kitty には無い、この設定だけの割り当て (kitty では PageUp / PageDown / Ctrl+Home / Ctrl+End はそのままアプリへ渡る)
   { id = 'scroll_log_page_up', keys = { 'pageup' }, label = 'PageUp', name = 'ログを1ページ上へスクロール (全画面アプリ以外)', yomi = 'rogu wo 1 pe-ji ue he sukuro-ru zengamen apuri igai', category = 'スクロール・履歴', action = scroll_or_pass_through(act.ScrollByPage(-1), 'PageUp') },
   { id = 'scroll_log_page_down', keys = { 'pagedown' }, label = 'PageDown', name = 'ログを1ページ下へスクロール (全画面アプリ以外)', yomi = 'rogu wo 1 pe-ji shita he sukuro-ru zengamen apuri igai', category = 'スクロール・履歴', action = scroll_or_pass_through(act.ScrollByPage(1), 'PageDown') },
-  { id = 'scroll_log_top', keys = { 'home' }, label = 'Home', name = 'ログの先頭へ移動 (全画面アプリ以外)', yomi = 'rogu no sentou he idou zengamen apuri igai', category = 'スクロール・履歴', action = scroll_or_pass_through(act.ScrollToTop, 'Home') },
-  { id = 'scroll_log_bottom', keys = { 'end' }, label = 'End', name = 'ログの末尾へ移動 (全画面アプリ以外)', yomi = 'rogu no matsubi he idou zengamen apuri igai', category = 'スクロール・履歴', action = scroll_or_pass_through(act.ScrollToBottom, 'End') },
+  { id = 'scroll_log_top', keys = { 'ctrl+home' }, label = 'Ctrl+Home', name = 'ログの先頭へ移動 (全画面アプリ以外)', yomi = 'rogu no sentou he idou zengamen apuri igai', category = 'スクロール・履歴', action = scroll_or_pass_through(act.ScrollToTop, 'Home', 'CTRL') },
+  { id = 'scroll_log_bottom', keys = { 'ctrl+end' }, label = 'Ctrl+End', name = 'ログの末尾へ移動 (全画面アプリ以外)', yomi = 'rogu no matsubi he idou zengamen apuri igai', category = 'スクロール・履歴', action = scroll_or_pass_through(act.ScrollToBottom, 'End', 'CTRL') },
   { id = 'scroll_home', keys = { 'ctrl+shift+home' }, label = 'Ctrl+Shift+Home', name = '履歴の先頭へ移動', yomi = 'rireki no sentou he idou', category = 'スクロール・履歴', action = act.ScrollToTop },
   { id = 'scroll_end', keys = { 'ctrl+shift+end' }, label = 'Ctrl+Shift+End', name = '履歴の末尾へ移動', yomi = 'rireki no matsubi he idou', category = 'スクロール・履歴', action = act.ScrollToBottom },
   { id = 'scroll_to_previous_prompt', keys = { 'ctrl+shift+z' }, label = 'Ctrl+Shift+Z', name = '前のシェルプロンプトへ', yomi = 'mae no sheru puronputo he', category = 'スクロール・履歴', action = act.ScrollToPrompt(-1) },

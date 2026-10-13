@@ -127,10 +127,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
   Notepad++ が無いときは、ファイルの場所を通知します。**このファイルは自動では消えません**。
   パスワードなどを表示したあとは、手で削除してください。
   なお、kitty の Ctrl+Shift+E (画面上の URL を選んで開く) は、この操作に差し替えています。URL を選んで開くには、コマンド一覧から実行します。
-- **ログのスクロール**: PageUp / PageDown で 1 ページずつスクロールし、Home でログの先頭、End でログの末尾へ移動します。
+- **ログのスクロール**: PageUp / PageDown で 1 ページずつスクロールし、Ctrl+Home でログの先頭、Ctrl+End でログの末尾へ移動します。
   vim や less のような全画面のアプリの中では、そのアプリへキーをそのまま渡します。
   Ctrl+Shift+PageUp / PageDown / Home / End は従来どおりです。
-  シェルの入力行では Home / End が WezTerm に取られるので、行頭・行末への移動には使えません。
+  修飾キーなしの Home / End は割り当てていないので、シェルの入力行で行頭・行末へ移動できます。
+  PowerShell (PSReadLine) の既定では、Ctrl+Home / Ctrl+End は入力行の「カーソルより前 / 後ろを削除」です。
+  この割り当てがあるので、入力行ではその操作が使えません。
   戻したいときは `kitty_ja\commands.lua` の `scroll_log_top` と `scroll_log_bottom` の 2 行を消します。
 - **起動のしかた**: スタートメニューの「WezTerm」(`wezterm-gui.exe`) から起動します。
   コンソール版の `wezterm.exe` を Explorer (「ファイル名を指定して実行」やアイコンのダブルクリック) から起動すると、

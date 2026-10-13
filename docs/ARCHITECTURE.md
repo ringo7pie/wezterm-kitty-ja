@@ -303,7 +303,7 @@ PowerShell 7 が見つからないときは、Windows PowerShell を `System32` 
 - **Windows 付属のプログラムをフルパスで起動する**（`settings.lua`）: メモ帳と Windows PowerShell は、`%SystemRoot%\System32` 以下のフルパスで指定する。名前だけだと、カレントフォルダや PATH にある同名の別のプログラムが起動しうるため。
 - **新しいペインの位置**（`panes.new_window`）: kitty の起動時のレイアウト（fat）に寄せる。1 枚目は下へ全幅で分割し、2 枚目以降は最下段の右端を右へ分割する。
 - **最大化の切り替え**（`panes.toggle_maximized`）: 最大化の状態を取得する API が無いので、`state.lua` の `maximized` に自分で覚える。
-- **代替画面の判定**（`commands.lua` の `scroll_or_pass_through`）: 修飾キーなしの PageUp / PageDown / Home / End は、代替画面（alternate screen）が有効なら（vim や less の中）そのままアプリへ送り、そうでなければログをスクロールする。
+- **代替画面の判定**（`commands.lua` の `scroll_or_pass_through`）: 修飾キーなしの PageUp / PageDown と Ctrl+Home / Ctrl+End は、代替画面（alternate screen）が有効なら（vim や less の中）そのままアプリへ送り、そうでなければログをスクロールする。修飾キーなしの Home / End は割り当てない（シェルの入力行で行頭・行末へ移動できる）。
 - **選択範囲の貼り付け**（`panes.paste_from_selection`）: Windows には Primary Selection が無いので、選択中の文字列があればそれを、無ければクリップボードを貼る。
 - **フォントサイズ・透明度**（`panes.change_font_size`、`panes.set_background_opacity`）: ウィンドウごとの上書き設定（`set_config_overrides`）で変える。フォントは倍率ではなくポイント数で増減する。
 
@@ -396,7 +396,7 @@ PowerShell 7 で動く（`#requires -Version 7.0`）。
 | Microsoft Store 版の PowerShell 7 は自動で見つからない。環境変数 `KITTY_JA_PWSH` に `pwsh.exe` のパスを入れる | `settings.lua`、`install.ps1` |
 | PowerShell 7 の実行ポリシーが `Restricted` か `AllSigned` だと、`integration.ps1` が動かない | `install.ps1` |
 | コマンドパレットは日本語で検索できない（選択画面が IME の入力を受け取れない）。ローマ字か英語で探す | `palette.lua` |
-| 修飾キーなしの Home / End は WezTerm が受け取るので、シェルの入力行で行頭・行末へ移動できない。`commands.lua` の `scroll_log_top` と `scroll_log_bottom` を消すと戻る | `commands.lua`、README |
+| Ctrl+Home / Ctrl+End は WezTerm が受け取るので、PowerShell (PSReadLine) の既定の割り当て (入力行の「カーソルより前 / 後ろを削除」) が使えない。`commands.lua` の `scroll_log_top` と `scroll_log_bottom` を消すと戻る | `commands.lua`、README |
 | パレットに表示される「Ctrl+Shift+E 画面上の URL を選んで開く」は、`.wezterm.lua` が Ctrl+Shift+E を差し替えるので、キーでは動かない（パレットからは動く） | `.wezterm.lua`、`commands.lua` |
 | Ctrl+Shift+Esc は Windows がタスクマネージャーに予約しているので、Lua REPL のデバッグ画面にはキーを割り当てていない | `commands.lua` |
 | コンソール版の `wezterm.exe` を Explorer から起動すると、空で入力できない「WezTerm」という窓が一緒に開く。設定では消せないので、`wezterm-gui.exe`（スタートメニューの「WezTerm」）から起動する | README（コードからは確認できない） |
