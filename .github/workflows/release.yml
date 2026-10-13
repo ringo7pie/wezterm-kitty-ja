@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer and package tests
+        shell: pwsh
+        run: ./tools/Test-Installer.ps1
+
+      - name: Build package
+        shell: pwsh
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          $version = $env:TAG_NAME.TrimStart('v')
+          $result = ./tools/New-Package.ps1 -OutputDirectory $env:RUNNER_TEMP -Version $version
+          "ZIP_PATH=$($result.ZipPath)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          gh release create $env:TAG_NAME $env:ZIP_PATH "$($env:ZIP_PATH).sha256" --title $env:TAG_NAME --generate-notes

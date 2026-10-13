@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lua-syntax:
+    name: Lua syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.4
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - name: Check syntax
+        run: |
+          status=0
+          for file in .wezterm.lua kitty_ja/*.lua; do
+            luac5.4 -p "$file" || status=1
+          done
+          exit $status
+
+  windows:
+    name: Installer and package (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($file in Get-ChildItem -Path . -Recurse -Filter '*.ps1' -File | Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' }) {
+            $tokens = $null
+            $parseErrors = $null
+            $null = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$parseErrors)
+            foreach ($parseError in $parseErrors) {
+              Write-Output "::error file=$($file.FullName)::$($parseError.Message)"
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+      - name: Installer and package tests
+        shell: pwsh
+        run: ./tools/Test-Installer.ps1
