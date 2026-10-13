@@ -104,6 +104,15 @@ wezterm show-keys                # check the resulting key bindings without open
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
+## About the development
+
+This project was built by [Claude Code](https://claude.com/claude-code) (Anthropic), an AI coding agent, at the direction of the author (ringo2pie).
+
+- Decided by the author: the goal (make WezTerm behave like kitty), the specification and scope, the license, and the decision to publish.
+- Done by Claude Code: the Lua configuration module, the installer, the package checks, the tests and the documentation.
+- The documentation states only what was verified by reading the code; what could not be verified from the code is marked as such
+  (see chapter 6 of [docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md), in Japanese).
+
 ## License
 
 [MIT License](LICENSE).

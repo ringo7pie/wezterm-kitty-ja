@@ -18,11 +18,15 @@ WezTerm、kitty、Notepad++、PowerShell、JetBrains Mono は、それぞれの�
 このプロジェクトは、これらの権利者とは無関係で、承認も受けていません (not affiliated with, endorsed by, or sponsored by)。
 名称は、対象となるソフトを示すためにだけ使っています。
 
-## 移植元
+## 移植元と作成の経緯
 
 kitty-ja-shortcuts (kitty 0.49.1 用のアドオン) の動作とコマンド名を、WezTerm の Lua 設定として移植したものです。
 
-[[LICENSE-TODO: 移植元の作者とライセンスを確認して、ここに書く。確認できるまで公開しない]]
+- kitty-ja-shortcuts は、このプロジェクトの作者 (ringo2pie) の指示で、AI アシスタントの Claude (Anthropic) が作成した私的なアドオンです。
+  公開されておらず、第三者のライセンスに従う部分はありません。
+- このプロジェクト (wezterm-kitty-ja) も、作者の指示で、Claude (Claude Code) が作成しました。
+  著作権の表示は、作者 (ringo2pie) としています。
+- 上の表のソフトウェアとフォントのコードは、どちらにも含まれていません。
 
 ## このプロジェクト自体
 

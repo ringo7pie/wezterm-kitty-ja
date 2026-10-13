@@ -215,6 +215,16 @@ zip に入るのは一覧にあるファイルだけで、git の履歴は入り
 個人のパスやメールアドレスが紛れ込んでいると、zip を作らずに止まります。
 貢献の手順は [CONTRIBUTING.md](CONTRIBUTING.md) を見てください。
 
+## 開発について
+
+このプロジェクトは、作者 (ringo2pie) の指示で、AI コーディングエージェントの [Claude Code](https://claude.com/claude-code) (Anthropic) が
+実装・資料・テストを作成しました。
+
+- 作者が決めたこと: 目的 (WezTerm を kitty と同じ操作にする)、仕様と範囲、ライセンス、公開の判断。
+- Claude Code が行ったこと: Lua の設定モジュール、インストーラー、配布物の検査、テスト、資料の作成。
+- 資料の記述は、コードを読んで確かめた内容に限っています。コードから確かめられないことは、その旨を書いています
+  ([docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md) の 6 章など)。
+
 ## ライセンス
 
 [MIT License](LICENSE)。
