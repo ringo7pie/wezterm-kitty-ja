@@ -94,8 +94,8 @@ $personalPatterns = @(
     [regex]::Escape($repositoryRoot),
     '[\w.+-]+@[\w-]+\.[\w.-]+',
     # ドライブ文字で始まる絶対パス (作者の環境のフォルダ構成)。HKLM:\ のようなレジストリのパスと、
-    # どの PC にもある C:\Windows、存在しないことを示す例の C:\no-such は除く
-    '(?<![A-Za-z])[A-Za-z]:\\+(?!Windows\b|\.\.\.|no-such)[\w.-]',
+    # どの PC にもある C:\Windows と C:\Program Files、存在しないことを示す例の C:\no-such は除く
+    '(?<![A-Za-z])[A-Za-z]:\\+(?!Windows\b|Program Files\b|\.\.\.|no-such)[\w.-]',
     # ネットワークのパス。説明用の例として書く \\server\share だけは除く
     '(?<![\\\w])\\\\(?!server\\share\b)[A-Za-z0-9][\w.-]*\\[\w$.-]+'
 )
