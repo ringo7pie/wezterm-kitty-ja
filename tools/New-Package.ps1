@@ -11,18 +11,23 @@ zip にする前に、次を確かめる。1 つでも当てはまれば中止�
 
   - 想定外の種類のファイルが入っていない
   - このユーザーのホームのパス、このリポジトリのパス、メールアドレスが書かれていない
+  - 確認待ちの印 ([[LICENSE-TODO ...]]) が残っていない
   - install.ps1 / uninstall.ps1 が BOM 付き (Windows PowerShell 5.1 で読める)
   - install.cmd / uninstall.cmd の改行が CRLF
 
 .PARAMETER OutputDirectory
 出力先。既定はリポジトリの dist フォルダ。
 
+.PARAMETER Version
+zip の名前に使う版 (例: 1.0.0)。省略すると「日付-コミット」になる。リリースのタグから渡す。
+
 .OUTPUTS
 ZipPath、Sha256、FileCount を持つオブジェクト。
 #>
 [CmdletBinding()]
 param(
-    [string] $OutputDirectory
+    [string] $OutputDirectory,
+    [string] $Version
 )
 
 Set-StrictMode -Version Latest
@@ -30,28 +35,41 @@ $ErrorActionPreference = 'Stop'
 
 $PackageName = 'wezterm-kitty-ja'
 $AllowedExtensions = @('.lua', '.ps1', '.cmd', '.txt', '.md')
-$TopLevelFiles = @('.wezterm.lua', 'install.ps1', 'install.cmd', 'uninstall.ps1', 'uninstall.cmd', 'README.md')
-$Directories = @('kitty_ja', 'defaults')
+$AllowedExtensionlessNames = @('LICENSE')
+$TopLevelFiles = @(
+    '.wezterm.lua', 'install.ps1', 'install.cmd', 'uninstall.ps1', 'uninstall.cmd',
+    'README.md', 'README.en.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'SECURITY.md', 'CONTRIBUTING.md', 'CHANGELOG.md'
+)
+$Directories = @('kitty_ja', 'defaults', 'docs')
 $BomScripts = @('install.ps1', 'uninstall.ps1')
 $CrlfScripts = @('install.cmd', 'uninstall.cmd')
+$PendingMarkerPattern = '\[\[LICENSE-TODO'
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $repositoryRoot 'dist' }
 
 # ---------------------------------------------------------------- 版の名前
 
-$version = Get-Date -Format 'yyyyMMdd'
-$commitHash = git -C $repositoryRoot rev-parse --short HEAD
-if ($LASTEXITCODE -eq 0 -and $commitHash) {
-    $version = "$version-$commitHash"
-    $pendingChanges = git -C $repositoryRoot status --porcelain
-    if ($LASTEXITCODE -ne 0) { throw 'git status に失敗しました。' }
-    if ($pendingChanges) {
-        $version = "$version-dirty"
-        Write-Warning 'コミットしていない変更があります。zip の名前に -dirty を付けます。'
+if ($Version) {
+    # zip の名前とフォルダの名前に使うので、パスの区切りや空白を含む値は受け付けない
+    if ($Version -notmatch '^[0-9A-Za-z][0-9A-Za-z._-]*$') {
+        throw "版の名前に使えない文字があります: $Version"
     }
+    $packageVersion = $Version
 } else {
-    Write-Warning 'git のコミットを取得できないので、日付だけを版の名前にします。'
+    $packageVersion = Get-Date -Format 'yyyyMMdd'
+    $commitHash = git -C $repositoryRoot rev-parse --short HEAD
+    if ($LASTEXITCODE -eq 0 -and $commitHash) {
+        $packageVersion = "$packageVersion-$commitHash"
+        $pendingChanges = git -C $repositoryRoot status --porcelain
+        if ($LASTEXITCODE -ne 0) { throw 'git status に失敗しました。' }
+        if ($pendingChanges) {
+            $packageVersion = "$packageVersion-dirty"
+            Write-Warning 'コミットしていない変更があります。zip の名前に -dirty を付けます。'
+        }
+    } else {
+        Write-Warning 'git のコミットを取得できないので、日付だけを版の名前にします。'
+    }
 }
 
 # ---------------------------------------------------------------- 配布するファイルを集める
@@ -65,12 +83,16 @@ foreach ($directoryName in $Directories) {
     }
 }
 
-$unexpected = @($relativePaths | Where-Object { $AllowedExtensions -notcontains [System.IO.Path]::GetExtension($_).ToLowerInvariant() })
+$unexpected = @($relativePaths | Where-Object {
+        $extension = [System.IO.Path]::GetExtension($_).ToLowerInvariant()
+        $isAllowedName = $AllowedExtensionlessNames -contains [System.IO.Path]::GetFileName($_)
+        (-not $isAllowedName) -and ($AllowedExtensions -notcontains $extension)
+    })
 if ($unexpected.Count -gt 0) {
     throw "想定外の種類のファイルがあります: $($unexpected -join ', ')"
 }
 
-$stagingDirectory = Join-Path $OutputDirectory "$PackageName-$version"
+$stagingDirectory = Join-Path $OutputDirectory "$PackageName-$packageVersion"
 $zipPath = "$stagingDirectory.zip"
 if (Test-Path -LiteralPath $stagingDirectory) {
     Remove-Item -LiteralPath $stagingDirectory -Recurse -Force
@@ -102,6 +124,12 @@ $personalPatterns = @(
 foreach ($stagedFile in (Get-ChildItem -LiteralPath $stagingDirectory -Recurse -File -Force)) {
     foreach ($match in (Select-String -LiteralPath $stagedFile.FullName -Pattern $personalPatterns -Encoding utf8)) {
         $findings.Add(('個人の情報らしき文字列: {0}:{1}: {2}' -f [System.IO.Path]::GetRelativePath($stagingDirectory, $stagedFile.FullName), $match.LineNumber, $match.Line.Trim()))
+    }
+}
+
+foreach ($stagedFile in (Get-ChildItem -LiteralPath $stagingDirectory -Recurse -File -Force)) {
+    foreach ($match in (Select-String -LiteralPath $stagedFile.FullName -Pattern $PendingMarkerPattern -Encoding utf8)) {
+        $findings.Add(('確認待ちの印が残っています: {0}:{1}' -f [System.IO.Path]::GetRelativePath($stagingDirectory, $stagedFile.FullName), $match.LineNumber))
     }
 }
 

@@ -11,8 +11,10 @@ WezTerm の kitty-ja 互換設定を、このユーザーにインストール�
 
 既にあるファイルは消さず、名前に .bak-<日時> を付けて残す。
 既にあるものがリンクのときは、リンクだけを消す (リンク先には触らない)。
-ソフトウェアのダウンロードやインストール、レジストリや環境変数の変更はしない。
+レジストリや環境変数は変更しない。管理者権限は要求しない。ネットワークには接続しない。
 WezTerm と PowerShell 7 が無ければ、入れ方を表示して止まる。
+ただし -InstallMissing を付けたとき、または確認に「はい」と答えたときだけ、winget で入れる
+(winget がインストーラーの管理者権限を要求することがある)。
 
 Windows PowerShell 5.1 と PowerShell 7 のどちらでも実行できる。
 
@@ -23,17 +25,35 @@ Windows PowerShell 5.1 と PowerShell 7 のどちらでも実行できる。
 .PARAMETER SkipRequirementCheck
 WezTerm と PowerShell 7 が見つからなくても続ける。
 
+.PARAMETER InstallMissing
+WezTerm と PowerShell 7 のうち無いものを、確認なしで winget から入れる。
+省略したとき、対話的な実行なら入れてよいかを尋ねる。
+
+.PARAMETER Launch
+インストールの後に WezTerm を起動する。
+省略したとき、対話的な実行なら起動してよいかを尋ねる。
+
+.PARAMETER NoPrompt
+何も尋ねない (自動化用)。-InstallMissing や -Launch を付けなければ、ソフトは入れず、起動もしない。
+
 .PARAMETER HomePath
 インストール先のホームフォルダ。既定は現在のユーザーのホーム。
 
 .EXAMPLE
 .\install.ps1 -WhatIf
 何をするかを表示するだけで、何も変更しない。
+
+.EXAMPLE
+.\install.ps1 -InstallMissing -Launch
+足りないソフトを入れ、設定を置き、WezTerm を起動する。
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [switch] $Link,
     [switch] $SkipRequirementCheck,
+    [switch] $InstallMissing,
+    [switch] $Launch,
+    [switch] $NoPrompt,
     [string] $HomePath = [Environment]::GetFolderPath('UserProfile')
 )
 
@@ -213,6 +233,74 @@ function Backup-ExistingItem {
     }
 }
 
+# 対話的に質問してよい実行か (-NoPrompt、入力のリダイレクト、画面の無い実行では $false)
+function Test-InteractiveSession {
+    if ($NoPrompt) { return $false }
+    try {
+        return ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected)
+    } catch {
+        return $false
+    }
+}
+
+# はい / いいえ を尋ねる。既定はいいえ
+function Confirm-Choice {
+    param(
+        [string] $Caption,
+        [string] $Message
+    )
+
+    $yes = New-Object -TypeName System.Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes', '実行する'
+    $no = New-Object -TypeName System.Management.Automation.Host.ChoiceDescription -ArgumentList '&No', '実行しない'
+    $selected = $Host.UI.PromptForChoice($Caption, $Message, @($yes, $no), 1)
+    return ($selected -eq 0)
+}
+
+# winget.exe のパス。無ければ $null
+function Find-Winget {
+    $command = Get-Command -Name 'winget.exe' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($command) { return $command.Source }
+    return $null
+}
+
+# winget でパッケージを入れる。成功したら $true
+function Install-WingetPackage {
+    param(
+        [string] $WingetPath,
+        [string] $PackageId
+    )
+
+    & $WingetPath install --id $PackageId --exact --source winget --accept-package-agreements --accept-source-agreements
+    return ($LASTEXITCODE -eq 0)
+}
+
+# 手でインストールするときの案内
+function Get-ManualInstallMessage {
+    param([object] $Package)
+
+    $lines = @(
+        "$($Package.Name) が見つかりません。次のコマンドでインストールしてから、もう一度実行してください。",
+        "  winget install --id $($Package.WingetId) --source winget"
+    )
+    if ($Package.Key -eq 'WezTerm') {
+        $lines += '  (インストール済みなのに見つからない場合は -SkipRequirementCheck を付けて実行してください)'
+    }
+    return $lines
+}
+
+# 入れた設定を WezTerm が読み込めるか。show-keys は設定が壊れていても終了コード 0 を返し、既定の割り当てだけを出す。
+# 物理キー ((Physical) 付きの割り当て) は kitty_ja が読み込まれたときだけ現れるので、それを目印にする
+function Test-ConfigurationLoads {
+    param(
+        [string] $WezTermDirectory,
+        [string] $EntryFile
+    )
+
+    $output = & (Join-Path $WezTermDirectory 'wezterm.exe') --config-file $EntryFile show-keys
+    if ($LASTEXITCODE -ne 0) { return $false }
+    return (@($output | Where-Object { "$_" -match '\(Physical\)' }).Count -gt 0)
+}
+
 # ---------------------------------------------------------------- 配布物と置き場所
 
 $sourceRoot = $PSScriptRoot
@@ -267,24 +355,62 @@ if ($env:XDG_CONFIG_HOME) {
 
 $powerShell7 = Find-PowerShell7
 $wezTermDirectory = Find-WezTerm
+$missingPackages = @()
 if (-not $SkipRequirementCheck) {
     if (-not $powerShell7) {
-        $problems += @(
-            'PowerShell 7 が見つかりません。次のコマンドでインストールしてから、もう一度実行してください。',
-            '  winget install --id Microsoft.PowerShell --source winget'
-        )
+        $missingPackages += [pscustomobject]@{ Key = 'PowerShell7'; Name = 'PowerShell 7'; WingetId = 'Microsoft.PowerShell' }
     }
     if (-not $wezTermDirectory) {
-        $problems += @(
-            'WezTerm が見つかりません。次のコマンドでインストールしてから、もう一度実行してください。',
-            '  winget install --id wez.wezterm --source winget',
-            '  (インストール済みなのに見つからない場合は -SkipRequirementCheck を付けて実行してください)'
-        )
+        $missingPackages += [pscustomobject]@{ Key = 'WezTerm'; Name = 'WezTerm'; WingetId = 'wez.wezterm' }
     }
 }
+
+# 設定の置き場所に問題があるときは、ソフトを入れずに止まる (足りないソフトの案内も一緒に出す)
 if ($problems.Count -gt 0) {
+    foreach ($package in $missingPackages) { $problems += Get-ManualInstallMessage -Package $package }
     foreach ($problem in $problems) { Write-Warning $problem }
     throw 'インストールを中止しました。何も変更していません。'
+}
+
+# 足りないソフトは、-InstallMissing か確認への「はい」があったときだけ winget で入れる
+$plannedPackageKeys = @()
+if ($missingPackages.Count -gt 0) {
+    $wingetPath = Find-Winget
+    $missingNames = ($missingPackages | ForEach-Object { $_.Name }) -join ' と '
+    $installNow = $InstallMissing.IsPresent
+    if (-not $installNow -and -not $WhatIfPreference -and $wingetPath -and (Test-InteractiveSession)) {
+        $installNow = Confirm-Choice -Caption "$missingNames が見つかりません" `
+            -Message 'winget で今インストールしますか? (管理者権限の確認画面が出ることがあります)'
+    }
+    if ($installNow -and -not $wingetPath) {
+        Write-Warning 'winget が見つからないので、自動ではインストールできません。'
+        $installNow = $false
+    }
+    if ($installNow) {
+        foreach ($package in $missingPackages) {
+            if ($PSCmdlet.ShouldProcess($package.Name, "winget でインストール ($($package.WingetId))")) {
+                if (-not (Install-WingetPackage -WingetPath $wingetPath -PackageId $package.WingetId)) {
+                    Write-Warning "$($package.Name) のインストールに失敗しました。"
+                }
+            } else {
+                $plannedPackageKeys += $package.Key
+            }
+        }
+        $powerShell7 = Find-PowerShell7
+        $wezTermDirectory = Find-WezTerm
+    }
+
+    $stillMissing = @()
+    foreach ($package in $missingPackages) {
+        $isFound = if ($package.Key -eq 'WezTerm') { [bool] $wezTermDirectory } else { [bool] $powerShell7 }
+        if (-not $isFound -and ($plannedPackageKeys -notcontains $package.Key)) { $stillMissing += $package }
+    }
+    if ($stillMissing.Count -gt 0) {
+        foreach ($package in $stillMissing) {
+            foreach ($line in (Get-ManualInstallMessage -Package $package)) { Write-Warning $line }
+        }
+        throw 'インストールを中止しました。設定は変更していません。'
+    }
 }
 
 if ($powerShell7) { Write-Output "PowerShell 7: $($powerShell7.Path)" }
@@ -384,5 +510,35 @@ if ($powerShell7) {
         Write-Warning "PowerShell 7 の実行ポリシーが $executionPolicy のため、シェル連携スクリプト (integration.ps1) を実行できません。"
         Write-Warning '  フォルダごとのタブ名・色の記憶と、タブの復元先のフォルダが働きません。'
         Write-Warning '  許可する場合は PowerShell 7 で次を実行してください: Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned'
+    }
+}
+
+# 入れた設定を WezTerm が読み込めるか確かめる。別のホームへ入れたとき (-HomePath) は、WezTerm が読むものと違うので確かめない
+$isCurrentUserHome = [string]::Equals(
+    $HomePath.TrimEnd('\'),
+    ([Environment]::GetFolderPath('UserProfile')).TrimEnd('\'),
+    [System.StringComparison]::OrdinalIgnoreCase)
+if ($wezTermDirectory -and $isCurrentUserHome) {
+    if (Test-ConfigurationLoads -WezTermDirectory $wezTermDirectory -EntryFile $targetEntryFile) {
+        Write-Output 'WezTerm がこの設定を読み込めることを確認しました。'
+    } else {
+        Write-Warning 'WezTerm がこの設定を読み込めたことを確認できませんでした。WezTerm を起動して、設定のエラーが表示されないかを見てください。'
+    }
+}
+
+# WezTerm を起動する。コンソール版の wezterm.exe ではなく、窓だけの wezterm-gui.exe を使う
+if ($wezTermDirectory) {
+    $shouldLaunch = $Launch.IsPresent
+    if (-not $shouldLaunch -and (Test-InteractiveSession)) {
+        $shouldLaunch = Confirm-Choice -Caption 'WezTerm を起動しますか' -Message 'この設定が反映された WezTerm の窓を開きます。'
+    }
+    if ($shouldLaunch) {
+        $guiPath = Join-Path $wezTermDirectory 'wezterm-gui.exe'
+        if (Test-Path -LiteralPath $guiPath -PathType Leaf) {
+            Start-Process -FilePath $guiPath
+            Write-Output 'WezTerm を起動しました。'
+        } else {
+            Write-Warning "wezterm-gui.exe が見つかりません。スタートメニューの「WezTerm」から起動してください: $guiPath"
+        }
     }
 }
