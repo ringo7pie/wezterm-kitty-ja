@@ -7,6 +7,8 @@
 
 ## 入力
 - ユーザーが「rollup / rolldown」と呼ぶキーは PageUp / PageDown である。修飾キーなしの PageUp / PageDown の割り当てで、通常画面のログが 1 ページずつスクロールすることを 2026-10-11 に実機で確認した。
+- 修飾キーなしの Home / End は、通常画面ではログの先頭 / 末尾へ移動する（`kitty_ja\commands.lua` の `scroll_log_top` / `scroll_log_bottom`）。vim や less など代替画面のアプリへは、キーをそのまま渡す。隔離した WezTerm で動作を確認した（2026-10-13）。
+- 通常画面では Home / End を WezTerm が受け取るので、シェルの入力行で行頭 / 行末へ移動する操作には効かない。この 2 件の割り当てを消すと戻る。
 
 ## 設定の反映
 - WezTerm が読む設定は `~\.wezterm.lua` と `~\.config\wezterm\kitty_ja\` のコピーで、リポジトリとはリンクされていない。リポジトリを直しただけでは WezTerm に反映されない。
