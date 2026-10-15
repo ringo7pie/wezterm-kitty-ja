@@ -48,9 +48,10 @@ WezTerm は `<ホーム>\.wezterm.lua` を Lua として評価し、返された
    2. `shell.apply`: 既定のシェル（`default_prog`）と、シェルへ渡す環境変数
    3. `mux.apply`: `settings.mux_server` が true なら、`config.unix_domains` に unix ドメインを足し、`config.default_gui_startup_args` を `{ 'connect', <ドメイン名> }` にする
    4. `keys.apply`: `config.keys` と `config.key_tables` を作る。このとき `colors.txt` を読む
-   5. `wezterm.add_to_config_reload_watch_list(settings.colors_file)`: `colors.txt` を保存すると、設定が読み直される
-   6. イベント（event）の登録: `format-tab-title`、`update-status`、`user-var-changed`、`gui-startup`（`session.lua` を読めたときだけ）、`mux-startup`（`settings.mux_server` が true のときだけ）
-   7. `palette.register`: コマンドパレットで選ばれたときのイベント `kitty-ja-palette-selected` を登録する
+   5. `mux.apply_keys`: `settings.mux_server` が true なら、mux 経由で別のキーとして届いてしまう Ctrl+J・Shift+Enter・Ctrl+Enter の割り当てを、`config.keys` の末尾へ足す（`keys.apply` が `config.keys` を作り直すので、その後に呼ぶ。4.11）
+   6. `wezterm.add_to_config_reload_watch_list(settings.colors_file)`: `colors.txt` を保存すると、設定が読み直される
+   7. イベント（event）の登録: `format-tab-title`、`update-status`、`user-var-changed`、`gui-startup`（`session.lua` を読めたときだけ）、`mux-startup`（`settings.mux_server` が true のときだけ）
+   8. `palette.register`: コマンドパレットで選ばれたときのイベント `kitty-ja-palette-selected` を登録する
 4. `.wezterm.lua` に戻り、`scrollback_lines` を 100000 以上にし、Ctrl+Shift+E の割り当てを差し替える（2.3）。
 
 `kitty_ja` を読み込めなかったときは、`.wezterm.lua` が `kitty_ja.settings` だけを読み、PowerShell 7 が見つかれば `default_prog` にする。このときシェル連携は動かない。
@@ -95,7 +96,7 @@ WezTerm は `<ホーム>\.wezterm.lua` を Lua として評価し、返された
 | `settings.lua` | 環境に合わせて変える値の置き場所。データファイルのパス、フォントサイズ、エディタ、PowerShell 7 の検出 |
 | `appearance.lua` | フォント、ベル、タブバーの見た目 |
 | `shell.lua` | 既定のシェルと、シェル連携へ渡す環境変数 |
-| `mux.lua` | シェルを wezterm-mux-server に持たせ、GUI をそこへ接続させる設定（unix ドメインの登録と、GUI の起動引数） |
+| `mux.lua` | シェルを wezterm-mux-server に持たせ、GUI をそこへ接続させる設定（unix ドメインの登録と、GUI の起動引数）。mux 経由で別のキーとして届く Ctrl+J・Shift+Enter・Ctrl+Enter の補正 |
 | `state.lua` | `wezterm.GLOBAL` に置く状態、合言葉（mux 構成では、サーバーとの共有）、復元中の印、タブバーの描き直し |
 | `commands.lua` | コマンド表。キー割り当てとコマンドパレットの唯一の定義元 |
 | `keys.lua` | コマンド表から `config.keys` と `config.key_tables` を作る |
@@ -337,6 +338,13 @@ PowerShell 7 が見つからないときは、Windows PowerShell を `System32` 
 | `mux-startup` | mux-server の起動時だけ。ハンドラの中で `wezterm.mux.spawn_window` を呼べる。ペインを作れば、既定のシェルは作られない |
 | `update-status`、`user-var-changed` | GUI。サーバーでは発火しない |
 
+**キー入力の補正（mux.lua の apply_keys）**
+
+- GUI から mux-server へ送るキー入力は、キーの文字と修飾キーだけを運ぶ。仮想キーコードまで含むキーの情報（win32-input-mode）は、ローカルの窓だけが ConPTY へ渡せる。このため、mux 構成では、Windows のコンソールの入力（`ReadConsoleInput`。codex など）で、Ctrl+J が Enter の Ctrl（本来は J の Ctrl）として、Shift+Enter と Ctrl+Enter が修飾キーなしの Enter として届く。codex の「Ctrl+J で改行」が効かなくなったのは、この影響（2026-10-15、実機の報告）。
+- 実測（`[Console]::ReadKey` で、届いたキーを表示して比べた。本物のキー入力を `keybd_event` で送った）。ローカルの窓: Ctrl+J は `Key=J Char=0x0A Mods=Control`、Shift+Enter は `Key=Enter Mods=Shift`、Ctrl+Enter は `Key=Enter Char=0x0A Mods=Control`。mux の窓: Ctrl+J は `Key=Enter Char=0x0A Mods=Control`、Shift+Enter と Ctrl+Enter は `Key=Enter Mods=None`。mux の設定に `allow_win32_input_mode = true` を足しても、結果は変わらなかった。
+- 対策は、この 3 つのキーに、win32-input-mode の列（`ESC [ Vk ; Sc ; Uc ; Kd ; Cs ; Rc _`）を直接送る割り当てを足すこと（`phys:J`+CTRL、`phys:Return`+SHIFT、`phys:Return`+CTRL。押した列と離した列を続けて送る）。`mux_server = false` のときは足さない。隔離した mux の窓で、3 つとも届き方がローカルと同じになり、codex の入力欄で Ctrl+J が改行になることを確かめた。
+- 確かめていない: 上の 3 つ以外の、修飾キー付きのキー（例: Ctrl+Backspace）が、mux 経由でもローカルと同じに届くか。ペインが ConPTY で動くことが前提（この設定のドメインは、どれも該当する）。
+
 **タブ構成の保存と復元（session.lua）**
 
 - 復元は、`gui-startup` ではなく、サーバーの `mux-startup`（`on_mux_startup`）で行う。GUI を閉じて開き直しただけなら、シェルはサーバーに残っているので、復元は要らない（サーバーが起動しない）。PC の再起動などでサーバーごと失われたあとの、最初の起動だけが復元する。
@@ -468,6 +476,7 @@ PowerShell 7 で動く（`#requires -Version 7.0`）。
 | mux-server 構成では、GUI を複数起動すると同じウィンドウが映る。サーバーを止める（PC を再起動する）とシェルが全部終わる。サーバーの環境変数は、サーバーを起動した GUI のもの | `mux.lua`、4.11 |
 | mux-server 構成で、色は GUI のプロセスにだけあるので、GUI を作り直すと、記憶（`memory.json`）にある色だけが戻る。ユーザー変数の通知も、シェルが次にプロンプトを出すまで見えない（OSC 7 のフォルダで代える） | `tab_memory.lua`、4.11 |
 | mux-server 構成の既定のソケットのパスは `<ホーム>\.local\share\wezterm\sock`。108 文字を超えるとサーバーが起動しない | 4.11（実測） |
+| mux-server 構成では、キーの仮想キーコードと修飾キーが ConPTY へ届かない。補正したのは Ctrl+J・Shift+Enter・Ctrl+Enter だけで、ほかの修飾キー付きのキーは確かめていない | `mux.lua`、4.11（実測） |
 | ペインの配置を分割木にできないタブがあると、その回は保存しない | `session.lua` |
 | 最大化の状態は Ctrl+Shift+F10 の操作でだけ覚えるので、ほかの方法で最大化・解除すると、記録と実際がずれる | `panes.lua` |
 | 動作を確かめた WezTerm は 20240203 版である。インストーラーは、これより前の版なら警告する | README、`install.ps1` |

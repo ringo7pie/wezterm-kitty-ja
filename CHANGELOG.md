@@ -28,6 +28,8 @@
 - mux-server 構成 (`settings.lua` の `mux_server`、既定は有効)。シェルを `wezterm-mux-server` に持たせ、GUI は接続するだけにする。
   GUI を閉じても、強制終了しても、起動し直しても、シェルとその中のプログラムが動き続ける。
   タブの復元をサーバーの起動時 (`mux-startup`) に行い、シェル連携の合言葉をファイルで共有する。`false` で従来の構成に戻る
+- mux-server 構成で、Ctrl+J・Shift+Enter・Ctrl+Enter が、Windows のコンソールの入力 (codex など) で別のキーとして届く問題の補正 (`mux.lua`)。
+  codex の「Ctrl+J で改行」が効かなくなっていた
 
 ### 変更
 
