@@ -311,7 +311,7 @@ local function notified_cwd(pane)
     return nil
   end
   local token, raw_path = value:match('^([^|]*)|(.*)$')
-  if token ~= state.shell_token() then
+  if not state.is_shell_token(token) then
     return nil
   end
   local path = module.normalize_path(raw_path)
@@ -413,6 +413,25 @@ local function tab_key_of(tab)
   return 't' .. tostring(tab:tab_id())
 end
 
+-- 名前が付いているタブの色を、フォルダの記憶から戻す。
+-- mux-server に残っていたタブを、新しい GUI が初めて見たときのため
+-- (名前はサーバー側のタブに残るが、色は GUI のプロセスの中にしか無かったので消えている)。
+-- 今のフォルダの記憶と名前が同じときだけ戻す。手で付けた色も、変えた時点でフォルダへ記憶されている
+local function adopt_remembered_colors(tab, tab_state, cwd)
+  if not cwd then
+    return
+  end
+  local _, look = lookup(load_folders(), cwd)
+  if not look or (look.title or '') ~= (tab_state.look.title or '') then
+    return
+  end
+  for _, field in ipairs(COLOR_FIELDS) do
+    tab_state.colors[field] = look[field]
+  end
+  -- 色を足したあとの見た目を基準にする (食い違うと、sync_tab がユーザー操作とみなして記憶を書き換える)
+  tab_state.look = tab_look(tab, tab_state)
+end
+
 local function first_sight(store, tab)
   local tab_key = tab_key_of(tab)
   store.pending[tab_key] = nil
@@ -423,9 +442,11 @@ local function first_sight(store, tab)
   local tab_state = { cwd = cwd, colors = {} }
   tab_state.look = tab_look(tab, tab_state)
   store.tabs[tab_key] = tab_state
-  -- 最初から名前が付いているタブはそのまま使う
   if is_default_look(tab_state.look) then
     restore(tab, tab_state, cwd)
+  else
+    -- 最初から名前が付いているタブは、名前をそのまま使う
+    adopt_remembered_colors(tab, tab_state, cwd)
   end
 end
 

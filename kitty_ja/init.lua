@@ -9,6 +9,8 @@ local wezterm = require 'wezterm'
 local settings = require 'kitty_ja.settings'
 local appearance = require 'kitty_ja.appearance'
 local shell = require 'kitty_ja.shell'
+local state = require 'kitty_ja.state'
+local mux = require 'kitty_ja.mux'
 local keys = require 'kitty_ja.keys'
 local palette = require 'kitty_ja.palette'
 local tab_colors = require 'kitty_ja.tab_colors'
@@ -25,6 +27,7 @@ local module = {}
 function module.apply_to_config(config)
   appearance.apply(config)
   shell.apply(config)
+  mux.apply(config)
   keys.apply(config)
 
   -- colors.txt を保存したら設定を読み直し、タブ色のキーを更新する
@@ -49,6 +52,19 @@ function module.apply_to_config(config)
   wezterm.on('user-var-changed', tab_memory.on_user_var_changed)
   if session_ok then
     wezterm.on('gui-startup', session.on_gui_startup)
+  end
+  -- mux-startup は mux-server の起動時にだけ発火する。GUI が connect で接続する構成では gui-startup が発火しないので、
+  -- タブの復元はここで行う。復元で作るシェルを GUI が確かめられるよう、合言葉を先に公開する
+  if settings.mux_server then
+    wezterm.on('mux-startup', function()
+      local published, publish_error = pcall(state.publish_shell_token)
+      if not published then
+        wezterm.log_error('kitty_ja: 合言葉を公開できません: ' .. tostring(publish_error))
+      end
+      if session_ok then
+        session.on_mux_startup()
+      end
+    end)
   end
   palette.register()
 end

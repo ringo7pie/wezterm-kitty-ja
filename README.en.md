@@ -21,6 +21,9 @@ It is a Lua configuration module (`kitty_ja`) plus an installer that is safe to 
   WezTerm's selection UI cannot receive IME input, so romaji and English search terms are provided.
 - **Tab colors and per-folder memory** — Ctrl+Shift+Alt+digit switches the tab color; tab name and color are remembered per folder.
 - **Session restore** — tabs, pane splits, folders, names and colors come back on the next launch.
+- **Programs survive closing the window** (mux-server mode, `mux_server` in `kitty_ja/settings.lua`) — shells are owned by
+  `wezterm-mux-server`, and the WezTerm window (GUI) just connects to it. Closing or force-killing the window keeps the
+  programs inside it (for example a Claude Code session) running. Set `mux_server = false` to turn it off.
   Running programs and the screen contents are not restored.
 - **Scrollback in Notepad++** (Ctrl+Shift+E, also Ctrl+Alt+Shift+F12) — writes the screen and scrollback to
   `%TEMP%\wezterm-history-<timestamp>-pane-<id>.txt` and opens it in Notepad++. This replaces kitty's Ctrl+Shift+E

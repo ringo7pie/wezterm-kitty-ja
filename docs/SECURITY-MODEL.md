@@ -56,7 +56,8 @@
 | 受け渡し | `shell.lua` の `apply` | 環境変数 `KITTY_JA_TOKEN` に入れ、`set_environment_variables` でシェルへ渡す |
 | シェル側 | `integration.ps1` | 読んだら `$global:KittyJaToken` へ移し、`Remove-Item -LiteralPath Env:KITTY_JA_TOKEN` で環境変数から消す（子プロセスへ渡さないため） |
 | 通知 | `integration.ps1` の `Send-KittyJaLocation` | 「合言葉、縦線、パス」を UTF-8 で Base64 にし、OSC 1337 の `SetUserVar=kitty_ja_cwd=...` で送る |
-| 検証 | `tab_memory.lua` の `notified_cwd` | 値の長さが上限（`MAX_PATH_LENGTH` + 64 バイト）以下で、先頭の合言葉が一致し、正規化したパスが 4096 バイト以下で制御文字を含まないときだけ使う。それ以外は偽装とみなして無視する |
+| 検証 | `tab_memory.lua` の `notified_cwd` | 値の長さが上限（`MAX_PATH_LENGTH` + 64 バイト）以下で、先頭の合言葉が `state.is_shell_token` で一致し、正規化したパスが 4096 バイト以下で制御文字を含まないときだけ使う。それ以外は偽装とみなして無視する |
+| 共有（mux 構成のみ） | `state.lua` の `publish_shell_token`、`is_shell_token` | シェルを起動する mux-server と、検証する GUI は別のプロセスで、それぞれが別の合言葉を作る。mux-server が `mux-startup` で自分の合言葉を `settings.shell_token_file`（`<ホーム>\.config\wezterm-kitty-ja\shell-token.txt`）へ書き、GUI は自分のものと、そのファイルの内容の両方を受け付ける |
 | 回復 | `integration.ps1` の `prompt` | プロンプトのたびに、正しい通知を出し直す |
 
 **防げないこと**
@@ -68,6 +69,7 @@
 - **擬似乱数**: 合言葉は Lua の `math.random`（擬似乱数（pseudo-random number））で作る。暗号論的に安全な乱数ではない。乱数の種（seed）を与える処理はこのリポジトリのコードには無く、WezTerm の Lua 実行環境がどう与えるかは確認できない。
 - **同じシェルの中のスクリプト**: 合言葉は `$global:KittyJaToken` として pwsh のセッションに残るので、そのセッションで実行したスクリプトは読める。
 - **環境変数が残る場合**: 環境変数から合言葉を消すのは `integration.ps1` だけである。`TERM_PROGRAM` が `WezTerm` でないときは、消す前に終わる。`integration.ps1` を通らずに起動されたプログラムに WezTerm がこの環境変数を渡した場合も、消されない。WezTerm がどのプログラムに `set_environment_variables` を渡すかは、このリポジトリのコードからは確認できない。
+- **mux 構成では、合言葉がファイルに残る**: `shell-token.txt` は、ユーザーのフォルダ（`<ホーム>\.config\wezterm-kitty-ja\`）にある通常のファイルで、同じユーザーで動くプログラムは読める。端末に文字を出すだけのもの（ssh 先や表示したファイル）はこのファイルを読めないので、偽装を防ぐ目的は変わらない。ファイルの内容は、mux-server を起動し直すたびに書き換わる（サーバーが残っている間は、GUI を作り直しても変わらない）。権限（ACL）をこのコードで設定してはいない。
 - **合言葉が合えばネットワークのパスも受け付ける**: `notified_cwd` は `is_local_path` を使わない。ネットワークのパスを保存したり開いたりする側で、4.2〜4.4 の検査が別に止める。タブ記憶（`tab_memory.lua`）はパスを文字列として照合するだけで、そのフォルダにはアクセスしない。
 
 ### 4.2 タブ復元のパス制限

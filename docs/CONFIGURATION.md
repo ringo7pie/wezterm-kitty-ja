@@ -16,12 +16,16 @@
 | `session_window_close_grace_seconds` | `3` | ウィンドウの数が減った状態がこの秒数続いてから保存する (複数ウィンドウを続けて閉じて終了したとき、途中の状態で上書きしないための猶予) |
 | `session_probe_timeout_ms` | `2000` | 復元時にフォルダの到達性を並行して確認する待ち時間の上限 (ミリ秒)。届かないフォルダは本来の行き先を保持したままホームで開く |
 | `session_tab_bar_rows` | `1` | タブが2枚以上のときに表示されるタブバーの行数分、復元時のウィンドウの高さに加算する (`hide_tab_bar_if_only_one_tab = true` / `use_fancy_tab_bar = false` との組み合わせに対応するための値) |
+| `mux_server` | `true` | `true` なら、シェルを `wezterm-mux-server` に持たせ、GUI はそこへ接続するだけにする (`mux.lua`)。GUI を閉じる・強制終了する・起動し直しても、シェルとその中のプログラムが動き続ける。`false` で、従来のとおり GUI がシェルを持つ。起動中の GUI は設定の再読み込みでは切り替わらない。変えたら WezTerm を起動し直す (`true` から `false` に変えたあとも、動いているサーバーとその中のシェルは残る。止めるには `wezterm-mux-server.exe` を終了する) |
+| `mux_domain_name` | `'unix'` | `unix_domains` に登録するドメイン名 (`wezterm connect <名前>` の名前)。`.wezterm.lua` で同じ名前のドメインを定義済みなら、そちらを使う |
+| `shell_token_file` | `<ホーム>\.config\wezterm-kitty-ja\shell-token.txt` | mux 構成で、サーバーと GUI が共有するシェル連携の合言葉のファイル。サーバーが起動時に書き、GUI が読む (`state.lua`) |
 | `shell_program` | `find_pwsh()` の戻り値 (自動検出。固定の既定値は無い) | 既定シェルとして起動する `pwsh.exe` のフルパス。見つからない場合は `nil` |
 | `fallback_shell_program` | `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` | `shell_program` が見つからないときに使う Windows PowerShell |
 | `integration_script` | `<ホーム>\.config\wezterm\kitty_ja\shell\integration.ps1` | pwsh 起動時に実行するシェル連携スクリプトのパス |
 | `editor_command` | Notepad++ が見つかればそのパス、無ければ `%SystemRoot%\System32\notepad.exe` (自動検出) | `colors.txt` / `memory.json` / WezTerm 設定ファイルを開くエディタの起動コマンド (配列。先頭要素が実行ファイル) |
 | `editor_line_option` | Notepad++ のときは `'-n'`、メモ帳のときは `nil` | 「ファイル:行番号」をエディタで開くときに、行番号の前へ付ける引数 |
 | `font_size` | `11` | 既定のフォントサイズ |
+| `render_mode` | `'webgpu-dx12'` | 画面の描画方式 (`appearance.lua`)。RDP で起動した窓が、コンソール (HDMI) への切り替えの間、画面が止まって見えるのを避けるための設定。`'opengl'` (WezTerm 既定)、`'angle'` (OpenGL を ANGLE 経由)、`'webgpu'` (GPU とバックエンドは WezTerm が選ぶ)、`'webgpu-dx12'` (DirectX 12 の GPU)、`'cpu'` (WebGpu の `webgpu_force_fallback_adapter`、実体は Windows 標準の Microsoft Basic Render Driver)。作者の PC (RTX 3070、Windows 11、WezTerm 20240203-110809-5046fc22) では、RDP で起動した窓を HDMI へ 3 分ほど切り替えると `'opengl'` だけが切り替えの瞬間から、`'angle'` は約 42 秒後に画面が止まり、`'webgpu'` / `'webgpu-dx12'` / `'cpu'` は止まらなかった。出力が流れ続けるときの 1 回の描画 (paint) の中央値は、`'opengl'` 0.9 ms、`'webgpu-dx12'` 1.7 ms、`'webgpu'` 14 ms、`'cpu'` 414 ms。別の PC・GPU では結果が変わりうるので、固まるときは値を変えて試す。開いている窓は設定の再読み込みでは切り替わらない (同じバージョンで確認)。変えたら WezTerm を起動し直す |
 | `font_size_step_key` | `2.0` | キー操作 (Ctrl+Shift+=/-) でのフォントサイズの増減幅 |
 | `font_size_step_palette` | `1.0` | コマンドパレットから実行したときのフォントサイズの増減幅 |
 | `opacity_step` | `0.1` | 背景の不透明度を1段階変える幅 (Ctrl+Shift+A → M/L) |
@@ -52,6 +56,7 @@
 | `tab-colors\colors.txt` | タブ色の定義。手で編集する (エディタは上記 `editor_command`)。`tab_colors.lua` の `load_colors` はファイルが無ければ空配列を返すだけで、エラーにはしない |
 | `tab-memory\memory.json` | フォルダごとのタブ名・タブ色の記憶 (`tab_memory.lua`)。`version` と `folders` を持つ JSON。手で編集して JSON として壊れた場合、直るまでそのフォルダの記憶を上書き保存しない (`load_folders` が `broken = true` を返し、呼び出し側が書き込みを避ける実装) |
 | `session\session.json` | 閉じたときのタブ構成・ペイン分割 (`session.lua`)。`windows = [ { active_tab, cols, rows, tabs = [...] } ]` の形。`version`、`owner_pid`、`saved_at` も持つ |
+| `shell-token.txt` | mux 構成で、サーバーとシェルを共有する合言葉 (`state.lua` の `publish_shell_token`)。サーバーの起動のたびに書き換わる。手で編集しない |
 | `session\session.json.bak` | このプロセスが `session.json` を最初に上書きする直前の内容の控え。手で戻すためのもので、自動では読まない |
 | `session\session.json.tmp` | 書き込み中に使う一時ファイル。本体 (`session.json`) が無い・壊れているときだけ、フォールバックとして読む |
 

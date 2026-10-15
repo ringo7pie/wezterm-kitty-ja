@@ -14,6 +14,8 @@ English: [README.en.md](README.en.md)
 - **日本語のコマンド一覧**: Ctrl+Shift+F12 で開きます。ローマ字 (`tabu`、`pein`) や英語 (`new_tab`) で絞り込めます。
 - **タブ色と、フォルダごとのタブ名・タブ色の記憶**: Ctrl+Shift+Alt+数字で色を切り替えます。
 - **タブとペイン分割の復元**: 閉じたときの構成を、次の起動で戻します。
+- **GUI を閉じても、中のプログラムが残る** (mux-server 構成): シェルを `wezterm-mux-server` に持たせ、WezTerm の窓 (GUI) はそこへ接続します。
+  窓を閉じたり、固まった窓を強制終了したりしても、中の Claude Code などは動き続けます。設定で止められます (下の「設定を変える」)。
 - **安全側の既定**: 端末に表示された文字列から、意図しないファイルが開かれたり実行されたりしないよう、開く対象を制限しています。
 
 ## クイックスタート
@@ -122,6 +124,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 - **タブ色**: Ctrl+Shift+Alt+数字。色の定義は `colors.txt` (Ctrl+Shift+Alt+E で開く)。
 - **タブの復元**: WezTerm を閉じて開き直すと、タブ・ペイン分割・フォルダ・タブ名・タブ色が戻ります。
   実行中だったプログラムと画面の文字は戻りません。
+  mux-server 構成 (既定) では、窓を閉じただけならシェルがサーバーに残っているので、開き直すと**実行中のプログラムも画面もそのまま**戻ります。
+  この復元が働くのは、サーバーごと失われたあと (PC の再起動など) の最初の起動です。
+- **mux-server 構成の使い方**: スタートメニューの「WezTerm」を起動すると、サーバーが自動で起動します。窓を全部閉じても、サーバーは残ります。
+  サーバーを止める (`wezterm-mux-server.exe` を終了する、PC を再起動する) と、中のシェルは全部終わります。
+  窓 (GUI) を複数起動すると、どれも同じウィンドウが映ります。別のウィンドウが要るときは Ctrl+Shift+N を使います。
+  サーバーが作るシェルの環境変数 (PATH など) は、サーバーを起動したときのものです。変えたときは、サーバーを止めて起動し直します。
+  使わないときは `kitty_ja\settings.lua` の `mux_server = false` にして、WezTerm を起動し直します。
 - **スクロール履歴を Notepad++ で開く**: Ctrl+Shift+E (Ctrl+Alt+Shift+F12 でも)。画面とスクロール履歴を、
   `%TEMP%` の `wezterm-history-<日時>-pane-<ペイン番号>.txt` (BOM 付き UTF-8) に書いて開きます。
   Notepad++ が無いときは、ファイルの場所を通知します。**このファイルは自動では消えません**。
@@ -156,6 +165,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 - `tab-colors\colors.txt`: タブ色の定義 (手で編集する)
 - `tab-memory\memory.json`: フォルダごとのタブ名・タブ色の記憶
 - `session\session.json`: 閉じたときのタブ構成。`session.json.bak` は直前の控え
+- `shell-token.txt`: mux-server 構成で、サーバーと窓が共有するシェル連携の合言葉 (サーバーの起動のたびに作り直される)
 
 ## 安全のための制限
 

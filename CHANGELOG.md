@@ -25,8 +25,14 @@
 - MIT License、サードパーティの表示 (`THIRD_PARTY_NOTICES.md`)
 - 設計・セキュリティ・キー一覧・設定・困ったときの資料 (`docs\`)、英語の README
 - GitHub Actions による検査 (Lua の構文、インストーラーと配布物のテスト) と、タグからのリリース作成
+- mux-server 構成 (`settings.lua` の `mux_server`、既定は有効)。シェルを `wezterm-mux-server` に持たせ、GUI は接続するだけにする。
+  GUI を閉じても、強制終了しても、起動し直しても、シェルとその中のプログラムが動き続ける。
+  タブの復元をサーバーの起動時 (`mux-startup`) に行い、シェル連携の合言葉をファイルで共有する。`false` で従来の構成に戻る
 
 ### 変更
 
+- RDP で起動した窓が、コンソール (HDMI) への切り替えの間、画面が止まって見える問題を避けるため、描画方式を選べるようにし
+  (`settings.lua` の `render_mode`)、既定を `'webgpu-dx12'` にした。作者の PC では、WezTerm 既定の OpenGL だけが止まり、
+  WebGpu (DirectX 12) は止まらず、1 回の描画の中央値は OpenGL 0.9 ms に対して 1.7 ms だった (CPU 描画は止まらないが 414 ms)
 - 配布物の検査が、どの PC にもある `C:\Program Files` を個人のパスと誤検出しないようにした
 - 配布 zip に、`LICENSE`・`THIRD_PARTY_NOTICES.md`・英語の README・`docs\` を含めるようにした

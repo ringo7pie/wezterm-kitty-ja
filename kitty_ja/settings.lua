@@ -82,6 +82,29 @@ module.editor_command = { notepad_plus_plus or (system_directory .. '\\notepad.e
 module.editor_line_option = notepad_plus_plus and '-n' or nil
 
 module.font_size = 11
+-- 画面の描画方式。RDP で起動した窓は、コンソール (HDMI) に切り替えている間、画面が止まって見えることがある
+-- (窓は描き続けているつもりでも、画面に出ない。RDP に戻すと動く)。この PC (RTX 3070) で、RDP で起動した窓を HDMI に
+-- 3 分ほど切り替えて、画面の絵が止まるかを撮って確かめた結果 (2026-10-15):
+--   'opengl'      WezTerm の既定 (NVIDIA の OpenGL)。切り替えの瞬間から止まった。paint 0.9 ms
+--   'angle'       OpenGL を ANGLE (Direct3D 11) 経由にする。約 42 秒後に止まった
+--   'webgpu'      WebGpu。GPU とバックエンドは WezTerm が選ぶ (この PC では NVIDIA の Vulkan)。止まらなかった。paint 14 ms
+--   'webgpu-dx12' WebGpu で DirectX 12 の GPU を選ぶ。止まらなかった。paint 1.7 ms。見つからなければ 'webgpu' と同じ
+--   'cpu'         WebGpu の CPU アダプタ (Windows 標準の WARP) で描く。止まらなかったが、paint 414 ms と重い
+-- paint は、出力が流れ続けるときの 1 回の描画の中央値。別の PC・GPU では結果が変わりうる。
+-- 開いている窓は設定の再読み込みでは切り替わらない。変えたら WezTerm を起動し直す
+module.render_mode = 'webgpu-dx12'
+
+-- true: シェルを wezterm-mux-server に持たせ、GUI はそこへ接続するだけにする (mux.lua)。
+-- GUI を閉じる・固まった GUI を強制終了する・GUI を起動し直しても、シェルとその中のプログラム (Claude Code など) は動き続ける。
+-- 最初の GUI の起動でサーバーが自動で起動し、GUI を全部閉じても残る。サーバーを止める (PC を再起動する) とシェルも全部終わる。
+-- GUI を複数起動すると、どれも同じウィンドウを映す。別のウィンドウが要るときは Ctrl+Shift+N。
+-- 起動中の GUI は設定の再読み込みでは切り替わらない。変えたら WezTerm を起動し直す
+module.mux_server = true
+-- unix_domains に登録するドメイン名 (wezterm connect <名前> の名前)
+module.mux_domain_name = 'unix'
+-- シェルを起動する mux-server と、通知を確かめる GUI は別のプロセスなので、シェル連携の合言葉 (state.lua) はファイルで共有する。
+-- mux-server が起動時に書き、GUI が読む
+module.shell_token_file = data_dir .. '\\shell-token.txt'
 -- kitty の既定キーは 2.0 刻み、commands.tsv (パレット) は 1.0 刻み
 module.font_size_step_key = 2.0
 module.font_size_step_palette = 1.0

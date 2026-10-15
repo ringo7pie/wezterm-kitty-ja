@@ -32,6 +32,11 @@ local BACKED_UP_KEY = 'kitty_ja_session_backed_up'
 local ROLE_KEY = 'kitty_ja_session_role'
 -- 'p<pane_id>' -> { last = 最後に分かったフォルダ, intended = 届かずホームで開いたペインの本来のフォルダ }
 local PANE_CACHE_KEY = 'kitty_ja_session_panes'
+-- 'secondary' の GUI が、持ち主の生死を最後に確かめた時刻 (mux 構成だけ)
+local ROLE_CHECKED_AT_KEY = 'kitty_ja_session_role_checked_at'
+local ROLE_RECHECK_SECONDS = 5
+-- mux-server へ接続している間だけ、GUI の wezterm.mux.all_windows() に入る進捗表示用の一時的なウィンドウのドメイン名
+local TRANSIENT_DOMAIN_NAME = 'TermWizTerminalDomain'
 
 -- 直前の WezTerm が終了し切るのを待つ上限
 local OWNER_EXIT_WAIT_MS = 3000
@@ -169,10 +174,44 @@ local function decide_role(session_data)
   return role
 end
 
+-- この GUI が mux-server に接続しているか (どれかのペインが mux のドメインにあるか)。
+-- 接続した GUI は、どれも同じウィンドウを映す
+local function is_mux_client()
+  if not settings.mux_server then
+    return false
+  end
+  for _, mux_window in ipairs(wezterm.mux.all_windows()) do
+    for _, tab in ipairs(mux_window:tabs()) do
+      for _, pane in ipairs(tab:panes()) do
+        local ok, name = pcall(function()
+          return pane:get_domain_name()
+        end)
+        if ok and name == settings.mux_domain_name then
+          return true
+        end
+      end
+    end
+  end
+  return false
+end
+
 -- gui-startup を通っていないプロセス (設定の再読み込みでこの機能が入った場合) は、最初の保存時に決める
 local function current_role()
   local role = wezterm.GLOBAL[ROLE_KEY]
-  if role == 'owner' or role == 'secondary' then
+  if role == 'owner' then
+    return role
+  end
+  if role == 'secondary' then
+    -- mux 構成では、持ち主の GUI が居なくなったら、残った GUI が保存を引き継ぐ
+    -- (固まった GUI を残したまま新しい GUI を開き、固まった方を閉じる使い方で、保存が止まったままにならないように)。
+    -- 別々のウィンドウを持つ普通の WezTerm は、持ち主が居なくなっても引き継がない
+    local now = os.time()
+    if now - (wezterm.GLOBAL[ROLE_CHECKED_AT_KEY] or 0) >= ROLE_RECHECK_SECONDS then
+      wezterm.GLOBAL[ROLE_CHECKED_AT_KEY] = now
+      if is_mux_client() then
+        return decide_role(read_session_file(settings.session_file))
+      end
+    end
     return role
   end
   return decide_role(read_session_file(settings.session_file))
@@ -297,13 +336,24 @@ local function rects_to_layout(rects)
   return nil
 end
 
--- ウィンドウ 1 枚分。分割木にできないタブがあれば nil (その回は保存しない)
-local function build_window(mux_window, store, pane_cache, alive_panes)
+local function is_transient_pane(pane)
+  local ok, name = pcall(function()
+    return pane:get_domain_name()
+  end)
+  return ok and name == TRANSIENT_DOMAIN_NAME
+end
+
+-- ウィンドウ 1 枚分。分割木にできないタブか、接続中の一時的なウィンドウがあれば nil (その回は保存しない)。
+-- mux_client: mux-server に接続した GUI。タブの名前・色をまだ読み込んでいないタブがあれば nil
+local function build_window(mux_window, store, pane_cache, alive_panes, mux_client)
   local window_data = { active_tab = 1, tabs = {} }
   for _, tab_info in ipairs(mux_window:tabs_with_info()) do
     local tab = tab_info.tab
     local rects = {}
     for _, pane_info in ipairs(tab:panes_with_info()) do
+      if is_transient_pane(pane_info.pane) then
+        return nil
+      end
       table.insert(rects, {
         left = pane_info.left,
         top = pane_info.top,
@@ -322,6 +372,11 @@ local function build_window(mux_window, store, pane_cache, alive_panes)
       end
       local tab_data = { layout = layout }
       local look = tab_memory.export_look(store, tab)
+      if not look and mux_client then
+        -- GUI を起動し直した直後は、サーバーに残っていたタブの名前・色を、tab_memory がまだ読み込んでいない。
+        -- 空のまま保存すると、前回保存した名前を消してしまう (数秒で読み込まれるので、その回は保存しない)
+        return nil
+      end
       if look then
         tab_data.title = look.title
         tab_data.colors = look.colors
@@ -350,8 +405,9 @@ local function build_windows()
   local alive_panes = {}
   local windows = {}
   local complete = true
+  local mux_client = is_mux_client()
   for _, mux_window in ipairs(mux_windows) do
-    local window_data = build_window(mux_window, store, pane_cache, alive_panes)
+    local window_data = build_window(mux_window, store, pane_cache, alive_panes, mux_client)
     if not window_data then
       complete = false
     elseif #window_data.tabs > 0 then
@@ -367,7 +423,7 @@ local function build_windows()
   if not complete then
     return nil
   end
-  return windows
+  return windows, mux_client
 end
 
 local function save_if_changed()
@@ -384,7 +440,7 @@ local function save_if_changed()
     return
   end
 
-  local windows = build_windows()
+  local windows, from_mux_client = build_windows()
   if not windows or #windows == 0 then
     return
   end
@@ -414,6 +470,9 @@ local function save_if_changed()
   local content = wezterm.json_encode({
     version = VERSION,
     owner_pid = own_pid(),
+    -- mux-server に接続した GUI が保存した印。mux-server の起動時の復元が、この印のないセッションの持ち主 (mux を使わない GUI) の
+    -- 生死を見るのに使う
+    mux = from_mux_client or nil,
     saved_at = os.date('%Y-%m-%dT%H:%M:%S'),
     windows = windows,
   })
@@ -616,6 +675,9 @@ local function restore_tab(mux_window, window_data, tab_data, context)
     tab, pane, mux_window = wezterm.mux.spawn_window(spawn)
   end
   note_spawned_pane(pane, resolved, context)
+  pcall(function()
+    context.restored_window_ids[mux_window:window_id()] = true
+  end)
 
   -- ここから先で失敗しても、作ったタブは復元済みとして返す (ウィンドウを見失うと、次のタブが別のウィンドウになる)
   local ok, err = pcall(function()
@@ -688,22 +750,50 @@ local function activate_tabs(tab_ids)
   end
 end
 
-local function restore_session(cmd)
+-- 復元で作っていないウィンドウのシェルを終わらせて、片付ける (mux-server の起動時だけ)。
+-- mux-server は、mux-startup より先に接続を受け付ける。GUI の自動起動では、その間に接続した GUI が
+-- 「空のサーバー」とみなして、ホームで開く既定のタブを作ることがある
+local function close_unrestored_windows(restored_window_ids)
+  for _, mux_window in ipairs(wezterm.mux.all_windows()) do
+    if not restored_window_ids[mux_window:window_id()] then
+      for _, tab in ipairs(mux_window:tabs()) do
+        for _, pane in ipairs(tab:panes()) do
+          pcall(function()
+            pane:send_text('exit\r')
+          end)
+        end
+      end
+    end
+  end
+end
+
+-- always_restore: mux-server の起動時は、持ち主の GUI の生死を見ずに復元する
+-- (サーバーは 1 つしか居ないので復元が二重にならない。GUI が残っていても、シェルを作るのはこのサーバー)
+local function restore_session(cmd, always_restore)
   if not settings.session_enabled then
     return
   end
   local session_data = load_session()
-  if session_data and is_other_gui_alive(session_data.owner_pid) then
-    -- 閉じてすぐ開き直すと、直前の WezTerm がまだ終了し切っていないことがある
-    local waited_ms = 0
-    while waited_ms < OWNER_EXIT_WAIT_MS and is_other_gui_alive(session_data.owner_pid) do
-      wezterm.sleep_ms(POLL_INTERVAL_MS)
-      waited_ms = waited_ms + POLL_INTERVAL_MS
+  if always_restore then
+    -- mux を使わない WezTerm (従来の、シェルを GUI が持つもの) が持ち主として動いている間は、そのタブを二重に復元しない。
+    -- mux の GUI が持ち主のセッションは、サーバーが落ちたあとの復元なので、持ち主の生死は見ない
+    if session_data and session_data.mux ~= true and is_other_gui_alive(session_data.owner_pid) then
+      log('mux を使わない WezTerm が動いているので、タブの復元をしません')
+      return
     end
-  end
-  if decide_role(session_data) ~= 'owner' then
-    log('別の WezTerm が動いているので、タブの復元と保存をしません')
-    return
+  else
+    if session_data and is_other_gui_alive(session_data.owner_pid) then
+      -- 閉じてすぐ開き直すと、直前の WezTerm がまだ終了し切っていないことがある
+      local waited_ms = 0
+      while waited_ms < OWNER_EXIT_WAIT_MS and is_other_gui_alive(session_data.owner_pid) do
+        wezterm.sleep_ms(POLL_INTERVAL_MS)
+        waited_ms = waited_ms + POLL_INTERVAL_MS
+      end
+    end
+    if decide_role(session_data) ~= 'owner' then
+      log('別の WezTerm が動いているので、タブの復元と保存をしません')
+      return
+    end
   end
   if not session_data then
     return
@@ -734,6 +824,7 @@ local function restore_session(cmd)
     pane_count = 0,
     window_tab_count = 0,
     active_tab_ids = {},
+    restored_window_ids = {},
   }
   for _, window_data in ipairs(session_data.windows) do
     restore_window(window_data, context)
@@ -746,6 +837,9 @@ local function restore_session(cmd)
     wezterm.GLOBAL[ROLE_KEY] = 'secondary'
     log('タブを 1 枚も復元できませんでした。session.json は書き換えません')
     return
+  end
+  if always_restore then
+    close_unrestored_windows(context.restored_window_ids)
   end
   if cmd then
     -- 「ここで開く」や wezterm start -- prog で起動された: 復元に加えて、その内容のウィンドウを開く
@@ -768,6 +862,18 @@ end
 -- gui-startup: 前回のタブ構成を作り直す
 function module.on_gui_startup(cmd)
   local ok, err = pcall(restore_session, cmd)
+  state.set_restoring(false)
+  if not ok then
+    log(err)
+  end
+end
+
+-- mux-startup: mux-server の起動時に、前回のタブ構成を作り直す。
+-- GUI が connect で接続する構成 (mux.lua) では gui-startup が発火しないので、復元はサーバーで行う。
+-- GUI を閉じて開き直しただけなら、シェルはサーバーに残っているので、復元は要らない (発火しない)。
+-- 保存は GUI の update-status が続ける (サーバーでは update-status が発火しない)
+function module.on_mux_startup()
+  local ok, err = pcall(restore_session, nil, true)
   state.set_restoring(false)
   if not ok then
     log(err)

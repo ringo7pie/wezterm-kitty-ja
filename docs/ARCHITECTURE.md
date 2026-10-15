@@ -39,16 +39,18 @@ WezTerm は `<ホーム>\.wezterm.lua` を Lua として評価し、返された
    1. `settings.lua`: 読み込み時に PowerShell 7 と Notepad++ の場所を探し（`find_pwsh`、`find_in_program_files`）、データファイルのパスを決める
    2. `appearance.lua`
    3. `shell.lua`（ここで `state.lua` も読まれる）
-   4. `keys.lua`（ここで `commands.lua` が読まれ、その中で `panes.lua`・`tab_colors.lua`・`tab_memory.lua` が読まれる）
-   5. `palette.lua`
-   6. `session.lua`: これだけは `pcall(require, 'kitty_ja.session')` で読む。読めなかったときはエラーを記録し、タブ構成の保存と復元を除いて動く（`session_ok`）
+   4. `mux.lua`: mux-server 構成の unix ドメインの登録（4.11）
+   5. `keys.lua`（ここで `commands.lua` が読まれ、その中で `panes.lua`・`tab_colors.lua`・`tab_memory.lua` が読まれる）
+   6. `palette.lua`
+   7. `session.lua`: これだけは `pcall(require, 'kitty_ja.session')` で読む。読めなかったときはエラーを記録し、タブ構成の保存と復元を除いて動く（`session_ok`）
 3. `.wezterm.lua` が `init.lua` の `apply_to_config(config)` を呼ぶ。中では次の順に処理する。
    1. `appearance.apply`: フォント、ベル、タブバーの見た目
    2. `shell.apply`: 既定のシェル（`default_prog`）と、シェルへ渡す環境変数
-   3. `keys.apply`: `config.keys` と `config.key_tables` を作る。このとき `colors.txt` を読む
-   4. `wezterm.add_to_config_reload_watch_list(settings.colors_file)`: `colors.txt` を保存すると、設定が読み直される
-   5. イベント（event）の登録: `format-tab-title`、`update-status`、`user-var-changed`、`gui-startup`（`session.lua` を読めたときだけ）
-   6. `palette.register`: コマンドパレットで選ばれたときのイベント `kitty-ja-palette-selected` を登録する
+   3. `mux.apply`: `settings.mux_server` が true なら、`config.unix_domains` に unix ドメインを足し、`config.default_gui_startup_args` を `{ 'connect', <ドメイン名> }` にする
+   4. `keys.apply`: `config.keys` と `config.key_tables` を作る。このとき `colors.txt` を読む
+   5. `wezterm.add_to_config_reload_watch_list(settings.colors_file)`: `colors.txt` を保存すると、設定が読み直される
+   6. イベント（event）の登録: `format-tab-title`、`update-status`、`user-var-changed`、`gui-startup`（`session.lua` を読めたときだけ）、`mux-startup`（`settings.mux_server` が true のときだけ）
+   7. `palette.register`: コマンドパレットで選ばれたときのイベント `kitty-ja-palette-selected` を登録する
 4. `.wezterm.lua` に戻り、`scrollback_lines` を 100000 以上にし、Ctrl+Shift+E の割り当てを差し替える（2.3）。
 
 `kitty_ja` を読み込めなかったときは、`.wezterm.lua` が `kitty_ja.settings` だけを読み、PowerShell 7 が見つかれば `default_prog` にする。このときシェル連携は動かない。
@@ -57,7 +59,8 @@ WezTerm は `<ホーム>\.wezterm.lua` を Lua として評価し、返された
 
 | イベント | 呼ばれる関数 | 役割 |
 |---|---|---|
-| `gui-startup` | `session.on_gui_startup` | 前回のタブ構成を作り直す |
+| `gui-startup` | `session.on_gui_startup` | 前回のタブ構成を作り直す。`wezterm connect` で起動した GUI では発火しない（4.11） |
+| `mux-startup` | `state.publish_shell_token`、続けて `session.on_mux_startup` | mux-server の起動時にだけ発火する。合言葉をファイルへ公開し、前回のタブ構成を作り直す（4.11） |
 | `update-status` | `tab_memory.on_update_status`、続けて `session.on_update_status` | 新しいタブや名前の変化を拾い、その結果のタブ構成を保存する |
 | `user-var-changed` | `tab_memory.on_user_var_changed` | シェルからのフォルダの通知を受けて、タブ名・タブ色を合わせる |
 | `format-tab-title` | `tab_colors.format_tab_title` | タブ名と色を描く。失敗したら何も返さず、WezTerm 標準の表示に任せる |
@@ -92,7 +95,8 @@ WezTerm は `<ホーム>\.wezterm.lua` を Lua として評価し、返された
 | `settings.lua` | 環境に合わせて変える値の置き場所。データファイルのパス、フォントサイズ、エディタ、PowerShell 7 の検出 |
 | `appearance.lua` | フォント、ベル、タブバーの見た目 |
 | `shell.lua` | 既定のシェルと、シェル連携へ渡す環境変数 |
-| `state.lua` | `wezterm.GLOBAL` に置く状態、合言葉、復元中の印、タブバーの描き直し |
+| `mux.lua` | シェルを wezterm-mux-server に持たせ、GUI をそこへ接続させる設定（unix ドメインの登録と、GUI の起動引数） |
+| `state.lua` | `wezterm.GLOBAL` に置く状態、合言葉（mux 構成では、サーバーとの共有）、復元中の印、タブバーの描き直し |
 | `commands.lua` | コマンド表。キー割り当てとコマンドパレットの唯一の定義元 |
 | `keys.lua` | コマンド表から `config.keys` と `config.key_tables` を作る |
 | `palette.lua` | 日本語のコマンドパレット（選択画面と検索語） |
@@ -111,6 +115,7 @@ graph TD
     settingsMod["settings.lua"]
     appearanceMod["appearance.lua"]
     shellMod["shell.lua"]
+    muxMod["mux.lua"]
     stateMod["state.lua"]
     keysMod["keys.lua"]
     commandsMod["commands.lua"]
@@ -126,6 +131,8 @@ graph TD
     initMod --> settingsMod
     initMod --> appearanceMod
     initMod --> shellMod
+    initMod --> stateMod
+    initMod --> muxMod
     initMod --> keysMod
     initMod --> paletteMod
     initMod --> tabColorsMod
@@ -134,6 +141,8 @@ graph TD
     appearanceMod --> settingsMod
     shellMod --> settingsMod
     shellMod --> stateMod
+    muxMod --> settingsMod
+    stateMod --> settingsMod
     keysMod --> commandsMod
     keysMod --> panesMod
     commandsMod --> settingsMod
@@ -160,7 +169,7 @@ graph TD
 ```
 
 - `commands.lua` と `palette.lua` は互いを使うが、どちらも相手を関数の中で `require` するので、読み込みの時点では循環しない。
-- `settings.lua` と `state.lua` は、`wezterm` 以外のモジュールを読まない。
+- `settings.lua` は、`wezterm` 以外のモジュールを読まない。`state.lua` は、`settings.lua` だけを読む（合言葉のファイルのパスのため）。
 
 ## 4. 設計上の工夫
 
@@ -307,6 +316,56 @@ PowerShell 7 が見つからないときは、Windows PowerShell を `System32` 
 - **選択範囲の貼り付け**（`panes.paste_from_selection`）: Windows には Primary Selection が無いので、選択中の文字列があればそれを、無ければクリップボードを貼る。
 - **フォントサイズ・透明度**（`panes.change_font_size`、`panes.set_background_opacity`）: ウィンドウごとの上書き設定（`set_config_overrides`）で変える。フォントは倍率ではなくポイント数で増減する。
 
+### 4.11 mux-server 構成（mux.lua）
+
+`settings.mux_server` が true のとき、シェルを GUI（`wezterm-gui.exe`）ではなく `wezterm-mux-server.exe` に持たせる。GUI は、そこへ接続して表示するだけになる。GUI を閉じても、強制終了しても、起動し直しても、シェルとその中のプログラムは動き続ける。RDP とコンソールの切り替えで GUI が操作できなくなったときも、GUI だけを捨てて、シェルを残せる（`settings.lua` のコメント）。
+
+以下は、すべて WezTerm 20240203-110809-5046fc22 を、使い捨ての環境（TEMP 下に `kitty_ja` を複製し、データの置き場所も付け替えたもの）で実測して確かめた内容である。
+
+**起動の流れ**
+
+1. `mux.apply` が `config.unix_domains` に `{ name = settings.mux_domain_name }` を足し、`config.default_gui_startup_args` を `{ 'connect', <ドメイン名> }` にする。引数なしの `wezterm-gui.exe`（スタートメニューの「WezTerm」）が、`wezterm connect` と同じになる。同じ名前のドメインが既にあれば足さない。
+2. サーバーが居なければ、GUI の接続がサーバーを自動で起動する（`no_serve_automatically` を指定しない）。起動したサーバーは、GUI の親プロセスが終わっても残り、GUI を全部閉じても残る。シェルが 1 個も無くなっても終了せず、空のまま残る。
+3. サーバーも同じ設定ファイル（`.wezterm.lua`）を読む。サーバーのプロセスには `wezterm.gui` が無い（`appearance.lua` の `find_discrete_gpu` はこれを前提にしている）。
+4. 新しいタブ・ウィンドウ・ペインは、操作したペインと同じドメインに作られる。`SpawnCommand` の `domain` の既定値が `CurrentPaneDomain` で、`commands.lua` と `panes.lua` は `domain` を指定していないため。
+
+**イベントの違い**
+
+| イベント | 発火する場所 |
+|---|---|
+| `gui-startup` | `wezterm start` で起動した GUI だけ。`wezterm connect` で起動した GUI では発火しない |
+| `mux-startup` | mux-server の起動時だけ。ハンドラの中で `wezterm.mux.spawn_window` を呼べる。ペインを作れば、既定のシェルは作られない |
+| `update-status`、`user-var-changed` | GUI。サーバーでは発火しない |
+
+**タブ構成の保存と復元（session.lua）**
+
+- 復元は、`gui-startup` ではなく、サーバーの `mux-startup`（`on_mux_startup`）で行う。GUI を閉じて開き直しただけなら、シェルはサーバーに残っているので、復元は要らない（サーバーが起動しない）。PC の再起動などでサーバーごと失われたあとの、最初の起動だけが復元する。
+- サーバーの起動時の復元は、持ち主の GUI の生死を見ない。ただし `session.json` に `mux` の印が無く（mux を使わない WezTerm が書いたもの）、その持ち主がまだ動いているときは、タブを二重に作らないよう復元しない（`restore_session` の `always_restore`）。
+- 保存は、GUI の `update-status` が続ける。`session.json` には、mux の GUI が書いた印として `mux = true` を入れる。
+- サーバーは、`mux-startup` より先に接続を受け付ける。GUI の自動起動では、その間に接続した GUI が「空のサーバー」とみなして、ホームで開く既定のタブを作ることがある。復元で作っていないウィンドウは、復元の最後に、中のシェルへ `exit` を送って片付ける（`close_unrestored_windows`）。
+- GUI がサーバーに接続している間、`wezterm.mux.all_windows()` に、進捗表示用の一時的なウィンドウ（ドメイン名 `TermWizTerminalDomain`）が入る。これを含む回は保存しない（`is_transient_pane`）。
+- mux の GUI は、サーバーに残っていたタブの名前・色を `tab_memory` がまだ読み込んでいない間は、保存しない（`build_window` の `mux_client`）。空のまま保存すると、前回の名前を消すため。
+- 持ち主の GUI が居なくなったとき、残った GUI が引き継いで保存する（`current_role`。5 秒ごとに確かめる）。固まった GUI を残したまま新しい GUI を開き、固まった方を閉じる使い方で、保存が止まったままにならないため。mux に接続していない WezTerm は、従来どおり引き継がない。
+
+**タブ記憶（tab_memory.lua）**
+
+- 名前はサーバー側のタブに残る（GUI を強制終了して作り直した GUI で、同じ名前が見えることを確かめた）。色は GUI の `wezterm.GLOBAL` にしかないので、GUI を作り直すと消える。名前が付いているタブを初めて見たとき、今のフォルダの記憶と名前が同じなら、色を記憶から戻す（`adopt_remembered_colors`）。
+- GUI のプロセスの `wezterm.mux` から、サーバーのタブ・ペインが見える。`get_domain_name()` は mux のドメイン名、`get_current_working_dir()`（OSC 7）と `get_user_vars()` も使える。
+- ユーザー変数（`kitty_ja_cwd`）は、GUI が接続しているあいだに届いたものしか見えない。作り直した GUI は、シェルが次にプロンプトを出す（フォルダを通知し直す）まで、OSC 7 のフォルダを使う。
+
+**合言葉（state.lua）**
+
+- シェルを起動するサーバーと、通知を確かめる GUI は別のプロセスで、それぞれが別の合言葉を作る。サーバーは `mux-startup` で自分の合言葉を `settings.shell_token_file` へ書き（`publish_shell_token`）、GUI は自分のものとそのファイルの両方を受け付ける（`is_shell_token`）。
+- サーバーの起動が GUI より後のことがあるので、合わないときはファイルを読み直す（2 秒に 1 回まで）。
+- 書くのは `mux-startup` だけにしている。`wezterm cli` など、設定を評価するだけのプロセスが書き換えないため。プロセスの種類は実行ファイルの名前では判定できない（`wezterm.procinfo.executable_path_for_pid` に自分の PID を渡すと `nil` になる。サーバーでも GUI でも確かめた）。
+
+**挙動の違い（利用者に見えるもの）**
+
+- 複数の GUI を同時に起動すると、同じウィンドウが映る（`window_id` が同じ）。別のウィンドウが要るときは、新しい OS ウィンドウの操作（Ctrl+Shift+N）を使う。
+- サーバーが読む環境変数は、サーバーを起動した GUI のものである。あとで環境変数（PATH など）を変えても、サーバーが作るシェルには反映されない。サーバーを止めて起動し直すと反映される。
+- サーバーを止める（`wezterm-mux-server.exe` を終了する）と、中のシェルは全部終わる。
+- Windows の `AF_UNIX` のソケットのパスには長さの上限（`SUN_LEN`、108 文字）がある。既定の場所は `<ホーム>\.local\share\wezterm\sock` で、ユーザー名が極端に長いとサーバーが起動しない（長いパスを指定したときのエラーは `path must be shorter than SUN_LEN`）。`unix_domains` の `socket_path` で短いパスを指定する。
+
 ## 5. データの置き場所と書式
 
 データは、Lua モジュールとは別のフォルダ `<ホーム>\.config\wezterm-kitty-ja\` に置く。同じフォルダだと、`memory.json` の保存で設定の再読み込みが走る恐れがあるため（`settings.lua` のコメント）。
@@ -315,7 +374,8 @@ PowerShell 7 が見つからないときは、Windows PowerShell を `System32` 
 |---|---|---|---|
 | `tab-colors\colors.txt` | 利用者（手で編集）。初回だけ `install.ps1` が置く | `tab_colors.load_colors`（設定の読み込み時、パレットを開くたび、色のキーを押すたび） | テキスト。1 行 1 色、縦線区切りで 4〜6 列。`#` で始まる行は注釈。先頭の BOM は無視する |
 | `tab-memory\memory.json` | `tab_memory.lua` の `write_folders` | `tab_memory.lua` の `load_folders` | JSON。`version` と `folders`（フォルダ → `title` と 4 つの色）。手で編集できるよう、フォルダ順に並べて整形する |
-| `session\session.json` | `session.lua` の `save_if_changed` | `session.lua` の `load_session` | JSON。`version`、`owner_pid`、`saved_at`、`windows`。ウィンドウは `active_tab`、`cols`、`rows`、`tabs` を持ち、タブは `title`、`colors`、`auto`、`layout` を持つ |
+| `shell-token.txt` | `state.lua` の `publish_shell_token`（mux-server の `mux-startup`） | `state.lua` の `is_shell_token`（mux に接続した GUI） | 合言葉（16 進数 32 文字）。mux 構成のときだけ使う |
+| `session\session.json` | `session.lua` の `save_if_changed` | `session.lua` の `load_session` | JSON。`version`、`owner_pid`、`mux`（mux の GUI が書いたときだけ）、`saved_at`、`windows`。ウィンドウは `active_tab`、`cols`、`rows`、`tabs` を持ち、タブは `title`、`colors`、`auto`、`layout` を持つ |
 | `session\session.json.bak` | `session.lua` の `backup_once` | 自動では読まない | 手で戻すための控え |
 | `memory.json.tmp`、`session.json.tmp` | 書き込みの途中 | `session.json.tmp` だけ、本体が無いか壊れているときに読む | 本体と同じ |
 
@@ -404,7 +464,10 @@ PowerShell 7 で動く（`#requires -Version 7.0`）。
 | `install.ps1` を実行すると、中身の違う `.wezterm.lua` は配布物のものに置き換わる。`.wezterm.lua` に書いた個人の設定（`notepadpp_override` など）は配布物の値に戻る。前のファイルは `.bak-<日時>` として残る | `install.ps1`、`.wezterm.lua` |
 | `<ホーム>\.config\wezterm\wezterm.lua` があるか、`XDG_CONFIG_HOME` が設定されていると、インストーラーは止まる | `install.ps1` |
 | `integration.ps1` の場所は、`<ホーム>\.config\wezterm\kitty_ja\shell\` に固定されている | `settings.lua` |
-| 別の WezTerm（`wezterm-gui`）が `session.json` の持ち主として動いている間に起動したプロセスは、タブ構成を復元も保存もしない | `session.lua` |
+| 別の WezTerm（`wezterm-gui`）が `session.json` の持ち主として動いている間に起動したプロセスは、タブ構成を復元も保存もしない。mux に接続した GUI だけは、持ち主が居なくなったら保存を引き継ぐ | `session.lua` |
+| mux-server 構成では、GUI を複数起動すると同じウィンドウが映る。サーバーを止める（PC を再起動する）とシェルが全部終わる。サーバーの環境変数は、サーバーを起動した GUI のもの | `mux.lua`、4.11 |
+| mux-server 構成で、色は GUI のプロセスにだけあるので、GUI を作り直すと、記憶（`memory.json`）にある色だけが戻る。ユーザー変数の通知も、シェルが次にプロンプトを出すまで見えない（OSC 7 のフォルダで代える） | `tab_memory.lua`、4.11 |
+| mux-server 構成の既定のソケットのパスは `<ホーム>\.local\share\wezterm\sock`。108 文字を超えるとサーバーが起動しない | 4.11（実測） |
 | ペインの配置を分割木にできないタブがあると、その回は保存しない | `session.lua` |
 | 最大化の状態は Ctrl+Shift+F10 の操作でだけ覚えるので、ほかの方法で最大化・解除すると、記録と実際がずれる | `panes.lua` |
 | 動作を確かめた WezTerm は 20240203 版である。インストーラーは、これより前の版なら警告する | README、`install.ps1` |
