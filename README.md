@@ -143,6 +143,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
   PowerShell (PSReadLine) の既定では、Ctrl+Home / Ctrl+End は入力行の「カーソルより前 / 後ろを削除」です。
   この割り当てがあるので、入力行ではその操作が使えません。
   戻したいときは `kitty_ja\commands.lua` の `scroll_log_top` と `scroll_log_bottom` の 2 行を消します。
+- **履歴の予測候補**: 入力しかけの文字に合う過去のコマンドの一覧が、入力行の下に出ます (PSReadLine の予測。`$PROFILE` は書き換えません)。
+  `kitty_ja\settings.lua` の `history_prediction` で、`'InlineView'` (入力行の続きに 1 つだけ薄く出す) や、
+  `false` (何も設定せず、`$PROFILE` の設定をそのまま使う) にできます。
+  PowerShell 7 で起動したときだけ働きます。Windows PowerShell 5.1 の PSReadLine には予測の機能がありません。
 - **起動のしかた**: スタートメニューの「WezTerm」(`wezterm-gui.exe`) から起動します。
   コンソール版の `wezterm.exe` を Explorer (「ファイル名を指定して実行」やアイコンのダブルクリック) から起動すると、
   WezTerm の窓とは別に、中身が空で入力できない「WezTerm」という名前のコンソールの窓 (Windows Terminal) が一緒に開きます。

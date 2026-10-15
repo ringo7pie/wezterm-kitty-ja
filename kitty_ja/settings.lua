@@ -74,6 +74,15 @@ module.shell_program = find_pwsh()
 module.fallback_shell_program = system_directory .. '\\WindowsPowerShell\\v1.0\\powershell.exe'
 module.integration_script = wezterm.home_dir .. '\\.config\\wezterm\\kitty_ja\\shell\\integration.ps1'
 
+-- 履歴の予測候補 (PSReadLine の予測。入力しかけの文字に合う過去のコマンドを出す)。integration.ps1 が pwsh の起動時に設定する。
+--   'ListView'   候補の一覧を入力行の下に出す
+--   'InlineView' 入力行の続きに、候補を 1 つだけ薄く出す
+--   false        何も設定しない ($PROFILE の設定をそのまま使う)
+-- integration.ps1 は $PROFILE の後に実行されるので、表示形式は、$PROFILE の設定よりこちらが優先される。
+-- 予測の元 (履歴・プラグイン) は、予測が切れている (None) ときだけ履歴にする。HistoryAndPlugin など、既にある設定は変えない。
+-- PSReadLine が予測に対応していない (Windows PowerShell 5.1 の PSReadLine 2.0.0 など) ときは、何も起きない
+module.history_prediction = 'ListView'
+
 -- colors.txt / memory.json / 設定ファイルを開くエディタ (kitty 側の nano に相当)。
 -- Notepad++ があればそれを、無ければメモ帳を使う
 local notepad_plus_plus = find_in_program_files('Notepad++\\notepad++.exe')

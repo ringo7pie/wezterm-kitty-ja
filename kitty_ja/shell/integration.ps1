@@ -94,4 +94,27 @@ if (Get-Command -Name Set-PSReadLineKeyHandler -ErrorAction Ignore) {
     }
 }
 
+# 履歴の予測候補 (PSReadLine)。表示形式 (ListView / InlineView) は shell.lua が環境変数で渡す。空なら何もしない。
+# $PROFILE の後に実行されるので、表示形式は $PROFILE で決めた値よりこちらが優先される。
+# 予測の元 (履歴・プラグイン) は、予測が切れている (None) ときだけ履歴にする。HistoryAndPlugin など、既にある設定は変えない。
+# 子プロセスへ渡らないよう、環境変数は読んだら消す
+$predictionViewStyle = [string] $env:KITTY_JA_PREDICTION
+Remove-Item -LiteralPath Env:KITTY_JA_PREDICTION -ErrorAction Ignore
+if ($predictionViewStyle -in @('ListView', 'InlineView')) {
+    $setOptionCommand = Get-Command -Name Set-PSReadLineOption -ErrorAction Ignore
+    # 予測に対応していない PSReadLine (2.0.0 など) では、引数が無いので何もしない
+    if ($setOptionCommand -and $setOptionCommand.Parameters.ContainsKey('PredictionSource') -and $setOptionCommand.Parameters.ContainsKey('PredictionViewStyle')) {
+        try {
+            $optionArguments = @{ PredictionViewStyle = $predictionViewStyle }
+            if ([string] (Get-PSReadLineOption).PredictionSource -eq 'None') {
+                $optionArguments.PredictionSource = 'History'
+            }
+            Set-PSReadLineOption @optionArguments
+        } catch {
+            # 予測を使えない端末 (出力がリダイレクトされている、など) では、そのままにする
+            $null = $_
+        }
+    }
+}
+
 Send-KittyJaLocation (Get-Location)

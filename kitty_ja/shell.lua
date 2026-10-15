@@ -28,6 +28,12 @@ function module.apply(config)
   end
   environment.KITTY_JA_INTEGRATION = settings.integration_script
   environment.KITTY_JA_TOKEN = state.shell_token()
+  -- 履歴の予測候補の表示形式。決まった値以外 (false など) は空にして、integration.ps1 に何もさせない
+  local prediction = settings.history_prediction
+  if prediction ~= 'ListView' and prediction ~= 'InlineView' then
+    prediction = ''
+  end
+  environment.KITTY_JA_PREDICTION = prediction
   config.set_environment_variables = environment
 
   config.default_prog = {

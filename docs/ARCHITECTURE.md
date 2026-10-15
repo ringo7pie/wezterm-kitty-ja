@@ -286,7 +286,8 @@ pwsh は `Set-Location` してもプロセスのカレントディレクトリ�
 1. **起動**（`shell.lua` の `apply`）: `default_prog` を、引数の配列 `{ <pwsh.exe のパス>, '-NoLogo', '-NoExit', '-Command', '& $env:KITTY_JA_INTEGRATION' }` にする。
    - スクリプトのパスは `-Command` の文字列に埋め込まず、環境変数 `KITTY_JA_INTEGRATION` で渡す。引用符を含むパスでコマンドが壊れないため。
    - 合言葉（token）は環境変数 `KITTY_JA_TOKEN` で渡す（`state.shell_token`）。
-   - 既にある `set_environment_variables` は残して、この 2 つを足す。
+   - 履歴の予測候補の表示形式は、環境変数 `KITTY_JA_PREDICTION` で渡す。`settings.history_prediction` が `'ListView'` か `'InlineView'` のときだけその値を入れ、それ以外（`false` など）は空にする。
+   - 既にある `set_environment_variables` は残して、この 3 つを足す。
    - `$PROFILE` は書き換えない。
 2. **スクリプトの開始**（`integration.ps1`）: ドットソースではなく `&` で実行するので、スクリプトの中の `Set-StrictMode` と `$ErrorActionPreference` は対話セッションへ漏れない。`TERM_PROGRAM` が `WezTerm` でなければ何もしない。合言葉を `$global:KittyJaToken` へ移し、環境変数から消す（子プロセスへ渡さないため）。
 3. **フォルダの通知**（`Send-KittyJaLocation`）: ファイルシステムのフォルダのときだけ、次を 1 回の書き込みで出す。
@@ -297,6 +298,11 @@ pwsh は `Set-Location` してもプロセスのカレントディレクトリ�
 5. **プロンプトの位置**: 既にある `prompt` 関数を置き換えずに包み、前後に OSC 133;A と OSC 133;B を出す。`$LASTEXITCODE` は保つ。PSReadLine があれば、Enter のハンドラで `AcceptLine` の後に OSC 133;C（出力の開始）を出す。
 6. **WezTerm 側の受け取り**: ユーザー変数が変わると `user-var-changed` が起き、`tab_memory.on_user_var_changed` が、変数名が `kitty_ja_cwd` のときだけそのタブを同期する。ペインのフォルダは `tab_memory.pane_cwd` が決める。合言葉の合うユーザー変数（`notified_cwd`）を優先し、無ければ WezTerm の `get_current_working_dir`（OSC 7 か、シェルのプロセスから WezTerm が調べたフォルダ）のうち、ドライブ文字で始まるもの（`reported_cwd`）を使う。
 7. **プロンプトの位置の利用**: OSC 133 による意味ゾーン（semantic zone）を、プロンプト間の移動（Ctrl+Shift+Z / X、`ScrollToPrompt`）と、直前コマンドの出力のコピー（Ctrl+Shift+G、`panes.copy_last_command_output`）が使う。WezTerm 20240203 の `get_text_from_semantic_zone` はゾーンの最終行を含めないので、範囲を 1 行広げて取り出す（`panes.zone_text`）。
+8. **履歴の予測候補**（`integration.ps1` の末尾）: `KITTY_JA_PREDICTION` が `ListView` か `InlineView` のときだけ、`Set-PSReadLineOption` で表示形式（`PredictionViewStyle`）を設定する。読んだら環境変数から消す（子プロセスへ渡さないため）。
+   - `Set-PSReadLineOption` に `PredictionSource` と `PredictionViewStyle` の引数が無い PSReadLine（Windows PowerShell 5.1 の 2.0.0 など）では、何もしない。
+   - 予測の元（`PredictionSource`）は、`None` のときだけ `History` にする。`HistoryAndPlugin` など、既にある設定は変えない。
+   - 設定に失敗しても（出力がリダイレクトされた端末など）、例外にせずそのままにする。`tools\Test-Installer.ps1` が、この端末でもエラーにならずに終わることを確かめる。
+   - `$PROFILE` の後に実行されるので、表示形式は `$PROFILE` の設定より、この設定が優先される。`false`（空）なら何もしないので、`$PROFILE` の設定がそのまま残る。
 
 PowerShell 7 が見つからないときは、Windows PowerShell を `System32` 以下のフルパスで、`-NoLogo` だけを付けて起動する。シェル連携は行わないので、タブ記憶、タブの復元先のフォルダ、プロンプト間の移動は働かない（`shell.lua` のコメント）。
 
@@ -465,6 +471,7 @@ PowerShell 7 で動く（`#requires -Version 7.0`）。
 | PowerShell 7 の実行ポリシーが `Restricted` か `AllSigned` だと、`integration.ps1` が動かない | `install.ps1` |
 | コマンドパレットは日本語で検索できない（選択画面が IME の入力を受け取れない）。ローマ字か英語で探す | `palette.lua` |
 | Ctrl+Home / Ctrl+End は WezTerm が受け取るので、PowerShell (PSReadLine) の既定の割り当て (入力行の「カーソルより前 / 後ろを削除」) が使えない。`commands.lua` の `scroll_log_top` と `scroll_log_bottom` を消すと戻る | `commands.lua`、README |
+| 履歴の予測候補は、PSReadLine が予測に対応していないと出ない (Windows PowerShell 5.1 の PSReadLine 2.0.0 に、予測の設定項目が無いことを確認した)。PowerShell 7 が見つからず Windows PowerShell で起動したときも、シェル連携スクリプトが動かないので出ない。ListView が使える PSReadLine の最低の版は確かめていない | `integration.ps1`、4.8 |
 | パレットに表示される「Ctrl+Shift+E 画面上の URL を選んで開く」は、`.wezterm.lua` が Ctrl+Shift+E を差し替えるので、キーでは動かない（パレットからは動く） | `.wezterm.lua`、`commands.lua` |
 | Ctrl+Shift+Esc は Windows がタスクマネージャーに予約しているので、Lua REPL のデバッグ画面にはキーを割り当てていない | `commands.lua` |
 | コンソール版の `wezterm.exe` を Explorer から起動すると、空で入力できない「WezTerm」という窓が一緒に開く。設定では消せないので、`wezterm-gui.exe`（スタートメニューの「WezTerm」）から起動する | README（コードからは確認できない） |

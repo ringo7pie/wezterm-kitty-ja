@@ -30,6 +30,10 @@
   タブの復元をサーバーの起動時 (`mux-startup`) に行い、シェル連携の合言葉をファイルで共有する。`false` で従来の構成に戻る
 - mux-server 構成で、Ctrl+J・Shift+Enter・Ctrl+Enter が、Windows のコンソールの入力 (codex など) で別のキーとして届く問題の補正 (`mux.lua`)。
   codex の「Ctrl+J で改行」が効かなくなっていた
+- 履歴の予測候補 (PSReadLine の予測) を、候補の一覧 (ListView) で出す設定 (`settings.lua` の `history_prediction`、既定は `'ListView'`)。
+  `$PROFILE` は書き換えず、`integration.ps1` が pwsh の起動時に設定する。`'InlineView'` や、何も設定しない `false` にできる。
+  予測が切れているときだけ履歴の予測にし、`HistoryAndPlugin` など既にある設定は変えない。
+  PSReadLine が予測に対応していない環境 (Windows PowerShell 5.1 など) では何もしない
 
 ### 変更
 

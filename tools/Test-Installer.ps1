@@ -14,6 +14,8 @@ install.ps1 / uninstall.ps1 / New-Package.ps1 を、使い捨てのホームフ�
   - uninstall は、設定を消さずに .removed-<日時> として残し、データは残す
   - 設定の置き場所が塞がれているとき (XDG_CONFIG_HOME、.config\wezterm\wezterm.lua) は、何も変更せずに止まる
   - 配布 zip が作れ、公開しないものが入っていない
+  - シェル連携スクリプト (integration.ps1) が、履歴の予測候補を設定できない端末 (出力がリダイレクトされている) でも、
+    エラーにならずに終わり、受け取った環境変数を消す
 
 install.ps1 と uninstall.ps1 は、PowerShell 7 と Windows PowerShell 5.1 の両方で実行する。
 ソフトのインストール (winget) は、どの検査でも行わない。
@@ -177,6 +179,31 @@ function Test-PackageBuild {
     }
 }
 
+function Test-ShellIntegration {
+    param([string] $ShellPath)
+
+    Write-Output ''
+    Write-Output '== シェル連携スクリプト (履歴の予測候補) =='
+    $integrationScript = Join-Path (Join-Path (Join-Path $repositoryRoot 'kitty_ja') 'shell') 'integration.ps1'
+    $quotedScript = $integrationScript.Replace("'", "''")
+    # スクリプトを実行したあと、環境変数が残っていれば終了コード 3 にする
+    $command = "& '$quotedScript'; if (`$env:KITTY_JA_PREDICTION) { exit 3 }"
+    $savedTermProgram = $env:TERM_PROGRAM
+    $savedPrediction = $env:KITTY_JA_PREDICTION
+    try {
+        $env:TERM_PROGRAM = 'WezTerm'
+        foreach ($style in @('ListView', 'InlineView', '', 'bogus')) {
+            $env:KITTY_JA_PREDICTION = $style
+            $null = & $ShellPath -NoProfile -NoLogo -Command $command 2>&1
+            $label = if ($style) { $style } else { '(空)' }
+            Assert-Condition ($LASTEXITCODE -eq 0) "KITTY_JA_PREDICTION=$label でも、エラーにならずに終わり、環境変数を消す"
+        }
+    } finally {
+        $env:TERM_PROGRAM = $savedTermProgram
+        $env:KITTY_JA_PREDICTION = $savedPrediction
+    }
+}
+
 $shells = [System.Collections.Generic.List[object]]::new()
 $shells.Add([pscustomobject]@{ Label = 'pwsh7'; Path = (Get-Command -Name 'pwsh' -CommandType Application | Select-Object -First 1).Source })
 $windowsPowerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
@@ -208,6 +235,8 @@ try {
     Test-BlockedInstall -ShellPath $primaryShell -Label 'blocked-xdg-config-home' `
         -Prepare { param($HomePath) $env:XDG_CONFIG_HOME = (Join-Path $HomePath 'xdg') } `
         -Cleanup { $env:XDG_CONFIG_HOME = $null }
+
+    Test-ShellIntegration -ShellPath $primaryShell
 
     Test-PackageBuild -ShellPath $primaryShell
 } finally {

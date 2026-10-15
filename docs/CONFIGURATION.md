@@ -22,6 +22,7 @@
 | `shell_program` | `find_pwsh()` の戻り値 (自動検出。固定の既定値は無い) | 既定シェルとして起動する `pwsh.exe` のフルパス。見つからない場合は `nil` |
 | `fallback_shell_program` | `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe` | `shell_program` が見つからないときに使う Windows PowerShell |
 | `integration_script` | `<ホーム>\.config\wezterm\kitty_ja\shell\integration.ps1` | pwsh 起動時に実行するシェル連携スクリプトのパス |
+| `history_prediction` | `'ListView'` | 履歴の予測候補 (PSReadLine の予測。入力しかけの文字に合う過去のコマンド) の表示形式。`integration.ps1` が pwsh の起動時に設定する (`$PROFILE` は書き換えない)。`'ListView'` は候補の一覧を入力行の下に出す。`'InlineView'` は入力行の続きに候補を 1 つだけ薄く出す。`false` は何も設定しない (`$PROFILE` の設定をそのまま使う)。`integration.ps1` は `$PROFILE` の後に実行されるので、表示形式は `$PROFILE` の設定よりこちらが優先される。予測の元 (履歴・プラグイン) は、予測が切れている (`None`) ときだけ履歴 (`History`) にし、`HistoryAndPlugin` など既にある設定は変えない。PSReadLine が予測に対応していない (Windows PowerShell 5.1 の PSReadLine 2.0.0 など。予測の設定項目が無いことを確認した) ときは、何も起きない。作者の PC (PowerShell 7.6.7、PSReadLine 2.4.5) では、WezTerm の窓の中で、`'ListView'` / `'InlineView'` / 空を指定して表示形式と予測の元が設定どおりになることを確かめた。ListView が使える PSReadLine の最低の版は確かめていない |
 | `editor_command` | Notepad++ が見つかればそのパス、無ければ `%SystemRoot%\System32\notepad.exe` (自動検出) | `colors.txt` / `memory.json` / WezTerm 設定ファイルを開くエディタの起動コマンド (配列。先頭要素が実行ファイル) |
 | `editor_line_option` | Notepad++ のときは `'-n'`、メモ帳のときは `nil` | 「ファイル:行番号」をエディタで開くときに、行番号の前へ付ける引数 |
 | `font_size` | `11` | 既定のフォントサイズ |
@@ -34,7 +35,7 @@
 
 ## 環境変数
 
-コードが読む環境変数は次の 8 個。「種別」の「外部」は OS やユーザーが用意するもの、「内部」は `kitty_ja` 自身が設定して自分で読み戻すものを指す。
+コードが読む環境変数は次の 11 個。「種別」の「外部」は OS やユーザーが用意するもの、「内部」は `kitty_ja` 自身が設定して自分で読み戻すものを指す。
 
 | 変数名 | 種別 | 読む場所 | 役割 |
 |---|---|---|---|
@@ -45,6 +46,7 @@
 | `SystemRoot` | 外部 (OS 標準。無ければ `C:\Windows`) | `settings.lua` | フォールバックの Windows PowerShell とメモ帳のパスを組み立てる基準 (`System32`) |
 | `KITTY_JA_INTEGRATION` | 内部 (`shell.lua` が設定し、起動した pwsh 自身が `$env:KITTY_JA_INTEGRATION` として読む) | `shell.lua` (`config.default_prog` の `-Command '& $env:KITTY_JA_INTEGRATION'`) | `integration_script` のパスを子プロセス (pwsh) へ渡す。パスを `-Command` の文字列へ直接埋め込むと、引用符を含むパスでコマンドが壊れるための経由 (コードのコメント) |
 | `KITTY_JA_TOKEN` | 内部 (`shell.lua` が設定し、`integration.ps1` が読んで即座に環境変数から削除する) | `shell.lua` / `kitty_ja\shell\integration.ps1` | シェル連携の合言葉。フォルダ通知 (OSC 1337 の `SetUserVar`) にこれを添えることで、端末に文字を出すだけのもの (ssh 先や `cat` したファイル) が通知を偽装できないようにする。`state.lua` の `shell_token()` が WezTerm プロセスごとに 1 回生成する |
+| `KITTY_JA_PREDICTION` | 内部 (`shell.lua` が設定し、`integration.ps1` が読んで即座に環境変数から削除する) | `shell.lua` / `kitty_ja\shell\integration.ps1` | 履歴の予測候補の表示形式。`settings.lua` の `history_prediction` が `'ListView'` か `'InlineView'` のときだけその値、それ以外 (`false` など) は空文字列で、空なら `integration.ps1` は何も設定しない |
 | `TERM_PROGRAM` | 外部 (WezTerm 本体が設定) | `kitty_ja\shell\integration.ps1` | 値が `'WezTerm'` でなければ、連携スクリプトの処理を中断する (`return`)。WezTerm 以外の端末で誤って読み込まれたときの誤動作を避ける |
 
 ## データの置き場所
