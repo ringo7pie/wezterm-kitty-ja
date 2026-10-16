@@ -42,3 +42,13 @@
   WebGpu (DirectX 12) は止まらず、1 回の描画の中央値は OpenGL 0.9 ms に対して 1.7 ms だった (CPU 描画は止まらないが 414 ms)
 - 配布物の検査が、どの PC にもある `C:\Program Files` を個人のパスと誤検出しないようにした
 - 配布 zip に、`LICENSE`・`THIRD_PARTY_NOTICES.md`・英語の README・`docs\` を含めるようにした
+
+### 修正
+
+- mux-server 構成で、codex など代替画面 (alternate screen) を使うアプリの中で、PageUp / PageDown・Ctrl+Home / Ctrl+End が効かない問題。
+  mux 経由のペインは `pane:is_alt_screen_active()` が常に false を返すので、キーをアプリへ渡さず、何も動かない WezTerm のスクロールになっていた。
+  mux のペインは、サーバーから届く画面の大きさ (`scrollback_rows` が `viewport_rows` 以下) で代替画面を判定する (`commands.lua`)。
+  スクロールバックが空の通常画面は代替画面と区別できず、そこでの Ctrl+Home / Ctrl+End はシェルへ渡る
+- mux-server 構成で、GUI の起動のたびにログへ `tab_memory: tab id 0 not found in mux` が 1 行出る問題 (実害はなかった)。
+  接続中だけある一時的なタブ (id 0) が、確認の前に消えるため。この WezTerm の `wezterm.mux.get_tab` は、タブが無いと nil ではなく
+  エラーを投げるので、`tab_memory.lua` の `find_tab` で「タブが無い」だけを nil として扱う (理由が違うエラーはそのままログに出す)

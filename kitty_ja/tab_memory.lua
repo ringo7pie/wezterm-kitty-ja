@@ -460,9 +460,23 @@ local function gui_window_of(tab)
   return nil
 end
 
+-- タブが無いときは nil を返す。WezTerm 20240203-110809-5046fc22 の wezterm.mux.get_tab は、nil ではなく
+-- 'tab id N not found in mux' というエラーを投げる (mux-server 構成の GUI の起動直後に消える、id 0 の一時的なタブで確認した)。
+-- 理由が違うエラーは、握りつぶさずそのまま投げ直す
+local function find_tab(tab_id)
+  local found, tab = pcall(wezterm.mux.get_tab, tab_id)
+  if found then
+    return tab
+  end
+  if tostring(tab):find('not found in mux', 1, true) then
+    return nil
+  end
+  error(tab, 0)
+end
+
 local function first_sight_by_id(tab_id)
   local ok, err = pcall(function()
-    local tab = wezterm.mux.get_tab(tab_id)
+    local tab = find_tab(tab_id)
     local store = state.load()
     if not tab then
       store.pending['t' .. tostring(tab_id)] = nil

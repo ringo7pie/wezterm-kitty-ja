@@ -42,12 +42,29 @@ local open_palette = callback(function(window, pane)
   require('kitty_ja.palette').show(window, pane)
 end)
 
+-- ペインが代替画面 (alternate screen) を使っているか。
+-- mux-server 構成 (settings.mux_server) の GUI のペインは、is_alt_screen_active() が常に false を返す
+-- (WezTerm 20240203-110809-5046fc22 の ClientPane は、サーバーへ問い合わせない。2026-10-16 に、less と、alternate screen に入る
+-- 自作のキー読み取りで確認した)。そのため mux のペインは、サーバーから届く画面の大きさで判断する。
+-- 代替画面にはスクロールバックが無いので、scrollback_rows が viewport_rows 以下になる (通常画面でスクロールバックがあれば、より大きい)。
+-- スクロールバックが空の通常画面 (起動直後・Clear-Host の直後) も同じ値になるので、代替画面と区別できない
+local function is_alt_screen(pane)
+  if pane:is_alt_screen_active() then
+    return true
+  end
+  if not (settings.mux_server and pane:get_domain_name() == settings.mux_domain_name) then
+    return false
+  end
+  local dimensions = pane:get_dimensions()
+  return dimensions.scrollback_rows <= dimensions.viewport_rows
+end
+
 -- 修飾キーなしの PageUp / PageDown と、Ctrl+Home / Ctrl+End。通常の画面ではログをスクロールする。
 -- vim や less など代替画面 (alternate screen) を使うアプリの中では、そのアプリへキーをそのまま渡す
 -- (修飾キーなしの Home / End は割り当てず、シェルの入力行で行頭・行末へ移動できるようにしてある)
 local function scroll_or_pass_through(scroll_action, key_name, mods)
   return callback(function(window, pane)
-    if pane:is_alt_screen_active() then
+    if is_alt_screen(pane) then
       window:perform_action(act.SendKey { key = key_name, mods = mods or 'NONE' }, pane)
     else
       window:perform_action(scroll_action, pane)

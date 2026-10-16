@@ -319,7 +319,7 @@ PowerShell 7 が見つからないときは、Windows PowerShell を `System32` 
 - **Windows 付属のプログラムをフルパスで起動する**（`settings.lua`）: メモ帳と Windows PowerShell は、`%SystemRoot%\System32` 以下のフルパスで指定する。名前だけだと、カレントフォルダや PATH にある同名の別のプログラムが起動しうるため。
 - **新しいペインの位置**（`panes.new_window`）: kitty の起動時のレイアウト（fat）に寄せる。1 枚目は下へ全幅で分割し、2 枚目以降は最下段の右端を右へ分割する。
 - **最大化の切り替え**（`panes.toggle_maximized`）: 最大化の状態を取得する API が無いので、`state.lua` の `maximized` に自分で覚える。
-- **代替画面の判定**（`commands.lua` の `scroll_or_pass_through`）: 修飾キーなしの PageUp / PageDown と Ctrl+Home / Ctrl+End は、代替画面（alternate screen）が有効なら（vim や less の中）そのままアプリへ送り、そうでなければログをスクロールする。修飾キーなしの Home / End は割り当てない（シェルの入力行で行頭・行末へ移動できる）。
+- **代替画面の判定**（`commands.lua` の `scroll_or_pass_through`、`is_alt_screen`）: 修飾キーなしの PageUp / PageDown と Ctrl+Home / Ctrl+End は、代替画面（alternate screen）が有効なら（vim や less、codex の中）そのままアプリへ送り、そうでなければログをスクロールする。修飾キーなしの Home / End は割り当てない（シェルの入力行で行頭・行末へ移動できる）。mux-server 構成のペインの判定は 4.11 を参照。
 - **選択範囲の貼り付け**（`panes.paste_from_selection`）: Windows には Primary Selection が無いので、選択中の文字列があればそれを、無ければクリップボードを貼る。
 - **フォントサイズ・透明度**（`panes.change_font_size`、`panes.set_background_opacity`）: ウィンドウごとの上書き設定（`set_config_overrides`）で変える。フォントは倍率ではなくポイント数で増減する。
 
@@ -350,6 +350,14 @@ PowerShell 7 が見つからないときは、Windows PowerShell を `System32` 
 - 実測（`[Console]::ReadKey` で、届いたキーを表示して比べた。本物のキー入力を `keybd_event` で送った）。ローカルの窓: Ctrl+J は `Key=J Char=0x0A Mods=Control`、Shift+Enter は `Key=Enter Mods=Shift`、Ctrl+Enter は `Key=Enter Char=0x0A Mods=Control`。mux の窓: Ctrl+J は `Key=Enter Char=0x0A Mods=Control`、Shift+Enter と Ctrl+Enter は `Key=Enter Mods=None`。mux の設定に `allow_win32_input_mode = true` を足しても、結果は変わらなかった。
 - 対策は、この 3 つのキーに、win32-input-mode の列（`ESC [ Vk ; Sc ; Uc ; Kd ; Cs ; Rc _`）を直接送る割り当てを足すこと（`phys:J`+CTRL、`phys:Return`+SHIFT、`phys:Return`+CTRL。押した列と離した列を続けて送る）。`mux_server = false` のときは足さない。隔離した mux の窓で、3 つとも届き方がローカルと同じになり、codex の入力欄で Ctrl+J が改行になることを確かめた。
 - 確かめていない: 上の 3 つ以外の、修飾キー付きのキー（例: Ctrl+Backspace）が、mux 経由でもローカルと同じに届くか。ペインが ConPTY で動くことが前提（この設定のドメインは、どれも該当する）。
+
+**代替画面の判定（commands.lua の is_alt_screen）**
+
+- mux 経由のペイン（`ClientPane`）の `pane:is_alt_screen_active()` は、常に false を返す。WezTerm 20240203-110809-5046fc22 のソースに `FIXME: retrieve this from the remote` とあり、サーバーへ問い合わせない。`pane:get_foreground_process_name()` も、mux のペインでは使えない（公式ドキュメント）。そのため、代替画面のアプリ（codex など）の中でも、PageUp / PageDown・Ctrl+Home / Ctrl+End が、何も動かない WezTerm のスクロールになっていた（2026-10-15 の mux 構成の追加で入った退行）。
+- `pane:get_dimensions()` は、サーバーが送る値をそのまま返す。実測（mux の窓、24 行）: スクロールバックのある通常画面は `scrollback_rows` が 302 前後、`less` や alternate screen に入った自作のキー読み取りは 24（`viewport_rows` と同じ）、`Clear-Host` の直後の通常画面も 24。codex の起動で、123 から 24 に変わった。
+- そこで、`settings.mux_server` が true で、ペインのドメインが `settings.mux_domain_name` のときだけ、`scrollback_rows <= viewport_rows` を代替画面とみなす。ローカルのペインには適用しない（`is_alt_screen_active()` が正しいので、空のスクロールバックの通常画面を誤認しない）。
+- 限界: スクロールバックが空の通常画面は、代替画面と同じ値になり、区別できない。そこでは Ctrl+Home / Ctrl+End がシェルへ渡る（PSReadLine の既定は入力中の文字の削除。実測で `abc` が消えた）。
+- 検証: 使い捨ての mux-server と GUI（別のソケットと設定ファイル）で、リポジトリの `commands.lua` を読み込み、アクションを実行した。代替画面のキー読み取りに、4 つのキーが `PageUp`・`PageDown`・`Home`+Control・`End`+Control として届いた（修正前は 1 つも届かない）。スクロールバックのあるシェルでは、キーはシェルへ渡らない。codex（0.162.1）は、4 つのキーで会話の表示が動いた。
 
 **タブ構成の保存と復元（session.lua）**
 

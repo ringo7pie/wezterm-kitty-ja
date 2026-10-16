@@ -287,13 +287,15 @@ KEY | 名前 | 選択中背景色 | 非選択背景色 | 選択中文字色(省�
 
 `commands.lua` のコメントに「kitty には無い、この設定だけの割り当て」とある (kitty では、修飾キーなしの PageUp / PageDown と Ctrl+Home / Ctrl+End はそのままアプリへ渡る)。
 
-実装は `scroll_or_pass_through(scroll_action, key_name, mods)` という関数で、`pane:is_alt_screen_active()` (代替画面 = alternate screen を使っているか) によって動作を分ける。
+実装は `scroll_or_pass_through(scroll_action, key_name, mods)` という関数で、ペインが代替画面 (alternate screen) を使っているか (`is_alt_screen(pane)`) によって動作を分ける。判定は、ローカルのペインでは `pane:is_alt_screen_active()` を使う。mux-server 構成 (`mux_server = true`) の窓のペインは、この関数が常に false を返す (サーバーへ問い合わせない) ので、サーバーから届く画面の大きさで判定する。`pane:get_dimensions()` の `scrollback_rows` が `viewport_rows` 以下なら代替画面とみなす (代替画面にはスクロールバックが無い)。
 
 | 画面の状態 | PageUp | PageDown | Ctrl+Home | Ctrl+End |
 |---|---|---|---|---|
 | 通常画面 (alt screen でない) | 1ページ上へスクロール (`ScrollByPage(-1)`) | 1ページ下へスクロール (`ScrollByPage(1)`) | ログの先頭へ移動 (`ScrollToTop`) | ログの末尾へ移動 (`ScrollToBottom`) |
 | 代替画面 (vim / less など全画面アプリ) | そのアプリへ `PageUp` キーをそのまま渡す | そのアプリへ `PageDown` キーをそのまま渡す | そのアプリへ `Ctrl+Home` キーをそのまま渡す | そのアプリへ `Ctrl+End` キーをそのまま渡す |
 
+- mux-server 構成の窓では、スクロールバックが空の通常画面 (起動直後、`Clear-Host` の直後) を、代替画面と区別できない。そこで Ctrl+Home / Ctrl+End を押すと、キーはシェルへ渡り、PSReadLine の既定 (入力中の文字の削除) が動く。PageUp / PageDown は害がない。動かすログが無い状態なので、スクロールとしては失うものがない。
+- codex と、Claude Code の全画面表示 (fullscreen rendering。`/tui` で切り替える) は、代替画面を使う。この 2 つでは、4 つのキーをアプリ自身が処理する。codex は、4 つとも会話の表示を動かすことを mux 経由の窓で確かめた (codex 0.162.1、2026-10-16)。Claude Code は公式資料の記載で、実機では確かめていない。Claude Code の従来表示 (classic) は通常画面を使うので、WezTerm がログをスクロールする。
 - Ctrl+Shift+PageUp / PageDown / Home / End (上の「スクロール・履歴」節の `scroll_page_up` 等) は、この分岐を持たず、常に通常のスクロール動作になる。
 - 修飾キーなしの Home / End は割り当てていない。シェルの入力行 (コマンドラインの編集中) で、行頭・行末への移動にそのまま使える。
 - Ctrl+Home / Ctrl+End を WezTerm が受け取るので、PowerShell (PSReadLine) の既定の割り当て (Ctrl+Home = `BackwardDeleteInput`、Ctrl+End = `ForwardDeleteInput`。`Get-PSReadLineKeyHandler` で確認した) は、シェルの入力行では使えない。元に戻すには `commands.lua` の `scroll_log_top` と `scroll_log_bottom` の 2 行を消す。
