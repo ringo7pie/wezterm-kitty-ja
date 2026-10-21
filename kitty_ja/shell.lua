@@ -34,6 +34,12 @@ function module.apply(config)
     prediction = ''
   end
   environment.KITTY_JA_PREDICTION = prediction
+  -- 履歴を選んで消すキー (PSReadLine のキー名)。文字列以外 (false など) は空にして、integration.ps1 にキーを割り当てさせない
+  local history_delete_key = settings.history_delete_key
+  if type(history_delete_key) ~= 'string' then
+    history_delete_key = ''
+  end
+  environment.KITTY_JA_HISTORY_DELETE_KEY = history_delete_key
   config.set_environment_variables = environment
 
   config.default_prog = {

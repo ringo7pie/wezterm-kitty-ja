@@ -117,4 +117,27 @@ if ($predictionViewStyle -in @('ListView', 'InlineView')) {
     }
 }
 
+# 履歴を選んで消す (Remove-KittyJaHistory)。割り当てるキー (PSReadLine のキー名) は shell.lua が環境変数で渡す。
+# 空なら、キーは割り当てない (関数は使える)。子プロセスへ渡らないよう、環境変数は読んだら消す
+$historyDeleteKey = [string] $env:KITTY_JA_HISTORY_DELETE_KEY
+Remove-Item -LiteralPath Env:KITTY_JA_HISTORY_DELETE_KEY -ErrorAction Ignore
+if (Get-Command -Name Set-PSReadLineKeyHandler -ErrorAction Ignore) {
+    try {
+        & (Join-Path $PSScriptRoot 'history.ps1')
+        if ($historyDeleteKey) {
+            Set-PSReadLineKeyHandler -Chord $historyDeleteKey -BriefDescription 'KittyJaRemoveHistory' -Description '履歴を選んで削除する (Out-GridView)' -ScriptBlock {
+                try {
+                    $null = Remove-KittyJaHistory
+                } finally {
+                    # Out-GridView の窓を閉じたあと、入力行を描き直す
+                    [Microsoft.PowerShell.PSConsoleReadLine]::InvokePrompt()
+                }
+            }
+        }
+    } catch {
+        # 読み込めない・キー名が不正でも、シェルは使えるようにしておく
+        $null = $_
+    }
+}
+
 Send-KittyJaLocation (Get-Location)

@@ -34,6 +34,9 @@
   `$PROFILE` は書き換えず、`integration.ps1` が pwsh の起動時に設定する。`'InlineView'` や、何も設定しない `false` にできる。
   予測が切れているときだけ履歴の予測にし、`HistoryAndPlugin` など既にある設定は変えない。
   PSReadLine が予測に対応していない環境 (Windows PowerShell 5.1 など) では何もしない
+- 履歴 (PSReadLine) のコマンドを選んで消す操作 (Shift+F7 または `Remove-KittyJaHistory`。キーは `settings.lua` の `history_delete_key`、
+  `false` で割り当てない)。一覧 (`Out-GridView`) で複数選択し、履歴ファイルと、そのシェルのメモリ内の履歴 (予測の元) から消す。
+  消した内容のバックアップは作らない。ほかのペインの pwsh は、開き直すまで予測に出す。履歴ファイルの書き換えは `tools\Test-Installer.ps1` で検査する
 
 ### 変更
 

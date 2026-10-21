@@ -147,6 +147,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
   `kitty_ja\settings.lua` の `history_prediction` で、`'InlineView'` (入力行の続きに 1 つだけ薄く出す) や、
   `false` (何も設定せず、`$PROFILE` の設定をそのまま使う) にできます。
   PowerShell 7 で起動したときだけ働きます。Windows PowerShell 5.1 の PSReadLine には予測の機能がありません。
+- **履歴を選んで削除**: Shift+F7 で履歴の一覧 (`Out-GridView`) が開きます。消したいコマンドを複数選んで OK を押すと、履歴ファイルと、
+  そのシェルの予測から消えます。パスワードなどを打ち込んでしまったコマンドを消す使い方を想定しているので、消した内容のバックアップは作りません。
+  ほかのペインの pwsh は、開き直すまで予測に出します。キーは `kitty_ja\settings.lua` の `history_delete_key` で変えられます (`false` で割り当てない)。
+  キーを使わずに、pwsh で `Remove-KittyJaHistory` を実行しても同じです。
 - **起動のしかた**: スタートメニューの「WezTerm」(`wezterm-gui.exe`) から起動します。
   コンソール版の `wezterm.exe` を Explorer (「ファイル名を指定して実行」やアイコンのダブルクリック) から起動すると、
   WezTerm の窓とは別に、中身が空で入力できない「WezTerm」という名前のコンソールの窓 (Windows Terminal) が一緒に開きます。

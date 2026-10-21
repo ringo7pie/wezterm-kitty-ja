@@ -287,7 +287,8 @@ pwsh は `Set-Location` してもプロセスのカレントディレクトリ�
    - スクリプトのパスは `-Command` の文字列に埋め込まず、環境変数 `KITTY_JA_INTEGRATION` で渡す。引用符を含むパスでコマンドが壊れないため。
    - 合言葉（token）は環境変数 `KITTY_JA_TOKEN` で渡す（`state.shell_token`）。
    - 履歴の予測候補の表示形式は、環境変数 `KITTY_JA_PREDICTION` で渡す。`settings.history_prediction` が `'ListView'` か `'InlineView'` のときだけその値を入れ、それ以外（`false` など）は空にする。
-   - 既にある `set_environment_variables` は残して、この 3 つを足す。
+   - 履歴を選んで消すキーは、環境変数 `KITTY_JA_HISTORY_DELETE_KEY` で渡す。`settings.history_delete_key` が文字列のときだけその値を入れ、それ以外（`false` など）は空にする。
+   - 既にある `set_environment_variables` は残して、この 4 つを足す。
    - `$PROFILE` は書き換えない。
 2. **スクリプトの開始**（`integration.ps1`）: ドットソースではなく `&` で実行するので、スクリプトの中の `Set-StrictMode` と `$ErrorActionPreference` は対話セッションへ漏れない。`TERM_PROGRAM` が `WezTerm` でなければ何もしない。合言葉を `$global:KittyJaToken` へ移し、環境変数から消す（子プロセスへ渡さないため）。
 3. **フォルダの通知**（`Send-KittyJaLocation`）: ファイルシステムのフォルダのときだけ、次を 1 回の書き込みで出す。
@@ -303,6 +304,11 @@ pwsh は `Set-Location` してもプロセスのカレントディレクトリ�
    - 予測の元（`PredictionSource`）は、`None` のときだけ `History` にする。`HistoryAndPlugin` など、既にある設定は変えない。
    - 設定に失敗しても（出力がリダイレクトされた端末など）、例外にせずそのままにする。`tools\Test-Installer.ps1` が、この端末でもエラーにならずに終わることを確かめる。
    - `$PROFILE` の後に実行されるので、表示形式は `$PROFILE` の設定より、この設定が優先される。`false`（空）なら何もしないので、`$PROFILE` の設定がそのまま残る。
+9. **履歴を選んで消す**（`integration.ps1` の末尾と `history.ps1`）: PSReadLine があれば、`history.ps1` を `&` で実行して、グローバル関数 `Remove-KittyJaHistory` と `Remove-KittyJaHistoryText` を定義する。`KITTY_JA_HISTORY_DELETE_KEY` が空でなければ、そのキー（PSReadLine のキー名）に `Set-PSReadLineKeyHandler` で、`Remove-KittyJaHistory` を呼んで入力行を描き直す処理（`KittyJaRemoveHistory`）を割り当てる。環境変数は読んだら消す。読み込みやキー名で失敗しても、例外にせずシェルは使えるようにする。
+   - `Remove-KittyJaHistory` は、引数なしなら、メモリ内の履歴（新しい順、同じコマンドは 1 行）を `Out-GridView -OutputMode Multiple` で出し、選ばれたコマンドを消す。`-CommandLine` を渡すと、一覧を出さずにそのコマンドを消す。選ばれなければ何もしない。
+   - **履歴ファイル**（`(Get-PSReadLineOption).HistorySavePath`）: 1 コマンドの終わりは CRLF で、コマンドの中の改行は「行末の `` ` `` ＋ LF」で書かれている（PSReadLine 2.4.5 の実際のファイルで確認）。`Remove-KittyJaHistoryText` は、この規則で行をまとめ、選ばれたコマンドと全文が一致するものだけを取り除く。残すコマンドは 1 バイトも変えない。同じコマンドが何度あっても全部消える。同じフォルダに一時ファイルを作って `File.Replace` で置き換えるので、途中で失敗しても元のファイルは壊れない。置き換える直前に、ファイルの大きさが読んだときと同じことを確かめる。バックアップは作らない（パスワードなどを打ち込んだコマンドを消す使い方で、消した内容を残さないため）。
+   - **メモリ内の履歴**（ListView の予測が読む）: PSReadLine に 1 件だけ消す API が無いので、`ClearHistory` で全部消して、残すものを `AddToHistory` で足し直す。ただし、そのまま足し直すと、足し直した項目が「未保存」の印（`HistoryItem` の非公開フィールド `_saved`）を持ち、`SaveIncrementally` のとき履歴ファイルへ全部書かれてしまう。`SaveIncrementally` のまま足し直すと、その場で二重に書かれ、`SaveNothing` にして足し直しても、戻したあとの次の追加で全件が追記された（2026-10-21 に一時ファイルで実測）。そのため、足し直す間は `SaveNothing` にし、足し直したあとに `_saved` を元の値へ戻す。`_saved` が見つからない版の PSReadLine では、メモリは作り直さず、警告を出す（確かめた版は 2.4.5）。
+   - `-CommandLine` を渡す経路の動作（メモリとファイルの両方から消え、残すものは変わらず、次に足したコマンドだけがファイルへ追記される）と、キーの割り当てが登録されること、`Out-GridView` を模擬に差し替えた選択の経路を、対話の pwsh で確かめた。実際の窓で `Shift+F7` を押し、`Out-GridView` の窓から選ぶ操作は、確かめていない。
 
 PowerShell 7 が見つからないときは、Windows PowerShell を `System32` 以下のフルパスで、`-NoLogo` だけを付けて起動する。シェル連携は行わないので、タブ記憶、タブの復元先のフォルダ、プロンプト間の移動は働かない（`shell.lua` のコメント）。
 
@@ -411,6 +417,8 @@ PowerShell 7 が見つからないときは、Windows PowerShell を `System32` 
 | 環境変数 `KITTY_JA_PWSH` | `settings.lua` の `find_pwsh` | `pwsh.exe` のパスを明示する（Microsoft Store 版など、自動で見つからないとき） |
 | 環境変数 `KITTY_JA_INTEGRATION` | `shell.lua` が設定し、`default_prog` が読む | `integration.ps1` のパス（`settings.integration_script`。`<ホーム>\.config\wezterm\kitty_ja\shell\integration.ps1` に固定） |
 | 環境変数 `KITTY_JA_TOKEN` | `shell.lua` が設定し、`integration.ps1` が読んで消す | 合言葉 |
+| 環境変数 `KITTY_JA_HISTORY_DELETE_KEY` | `shell.lua` が設定し、`integration.ps1` が読んで消す | 履歴を選んで消すキー（`settings.history_delete_key`）。空ならキーを割り当てない |
+| 履歴ファイルと同じフォルダの `ConsoleHost_history.txt.kitty-ja-tmp` | `history.ps1`（`Remove-KittyJaHistory`） | 履歴ファイルを置き換えるための一時ファイル。置き換えると無くなり、失敗したときは消す |
 | 環境変数 `PATHEXT` | `panes.lua` の `executable_extension_set` | 実行形式とみなす拡張子に足す |
 
 ## 6. インストーラーと配布物の作成
@@ -480,6 +488,7 @@ PowerShell 7 で動く（`#requires -Version 7.0`）。
 | コマンドパレットは日本語で検索できない（選択画面が IME の入力を受け取れない）。ローマ字か英語で探す | `palette.lua` |
 | Ctrl+Home / Ctrl+End は WezTerm が受け取るので、PowerShell (PSReadLine) の既定の割り当て (入力行の「カーソルより前 / 後ろを削除」) が使えない。`commands.lua` の `scroll_log_top` と `scroll_log_bottom` を消すと戻る | `commands.lua`、README |
 | 履歴の予測候補は、PSReadLine が予測に対応していないと出ない (Windows PowerShell 5.1 の PSReadLine 2.0.0 に、予測の設定項目が無いことを確認した)。PowerShell 7 が見つからず Windows PowerShell で起動したときも、シェル連携スクリプトが動かないので出ない。ListView が使える PSReadLine の最低の版は確かめていない | `integration.ps1`、4.8 |
+| 履歴を選んで消す操作（`Remove-KittyJaHistory`）は、そのシェルのメモリと履歴ファイルだけを書き換える。ほかのペインで動いている pwsh は、自分のメモリに履歴を持つので、開き直すまで、消したコマンドを予測に出す（設計上そうなる。2 つの pwsh での確認はしていない）。履歴ファイルを縮めるので、ほかの pwsh が追記分を取り込む位置がずれ、途中から切れた断片が履歴に混ざる恐れがある（未確認）。履歴ファイルを置き換える間に、ほかの pwsh が追記すると、その追記は失われうる。画面のスクロール履歴（Ctrl+Shift+E で書き出すファイルを含む）には、打ち込んだコマンドが残る。選択画面は `Out-GridView` なので、Windows のデスクトップのある環境でだけ使える | `history.ps1`、4.8 |
 | パレットに表示される「Ctrl+Shift+E 画面上の URL を選んで開く」は、`.wezterm.lua` が Ctrl+Shift+E を差し替えるので、キーでは動かない（パレットからは動く） | `.wezterm.lua`、`commands.lua` |
 | Ctrl+Shift+Esc は Windows がタスクマネージャーに予約しているので、Lua REPL のデバッグ画面にはキーを割り当てていない | `commands.lua` |
 | コンソール版の `wezterm.exe` を Explorer から起動すると、空で入力できない「WezTerm」という窓が一緒に開く。設定では消せないので、`wezterm-gui.exe`（スタートメニューの「WezTerm」）から起動する | README（コードからは確認できない） |

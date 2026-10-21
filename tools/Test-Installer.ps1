@@ -15,7 +15,8 @@ install.ps1 / uninstall.ps1 / New-Package.ps1 を、使い捨てのホームフ�
   - 設定の置き場所が塞がれているとき (XDG_CONFIG_HOME、.config\wezterm\wezterm.lua) は、何も変更せずに止まる
   - 配布 zip が作れ、公開しないものが入っていない
   - シェル連携スクリプト (integration.ps1) が、履歴の予測候補を設定できない端末 (出力がリダイレクトされている) でも、
-    エラーにならずに終わり、受け取った環境変数を消す
+    エラーにならずに終わり、受け取った環境変数を消す。履歴を選んで消すキーが不正でも同じ
+  - 履歴ファイルの書き換え (history.ps1) が、複数行のコマンド・重複・改行の違い・日本語で正しく働く
 
 install.ps1 と uninstall.ps1 は、PowerShell 7 と Windows PowerShell 5.1 の両方で実行する。
 ソフトのインストール (winget) は、どの検査でも行わない。
@@ -183,13 +184,14 @@ function Test-ShellIntegration {
     param([string] $ShellPath)
 
     Write-Output ''
-    Write-Output '== シェル連携スクリプト (履歴の予測候補) =='
+    Write-Output '== シェル連携スクリプト (履歴の予測候補・履歴を選んで消すキー) =='
     $integrationScript = Join-Path (Join-Path (Join-Path $repositoryRoot 'kitty_ja') 'shell') 'integration.ps1'
     $quotedScript = $integrationScript.Replace("'", "''")
-    # スクリプトを実行したあと、環境変数が残っていれば終了コード 3 にする
-    $command = "& '$quotedScript'; if (`$env:KITTY_JA_PREDICTION) { exit 3 }"
+    # スクリプトを実行したあと、環境変数が残っていれば終了コード 3、履歴を消す関数が無ければ 4 にする
+    $command = "& '$quotedScript'; if (`$env:KITTY_JA_PREDICTION -or `$env:KITTY_JA_HISTORY_DELETE_KEY) { exit 3 }; if (-not (Get-Command -Name Remove-KittyJaHistory -ErrorAction Ignore)) { exit 4 }"
     $savedTermProgram = $env:TERM_PROGRAM
     $savedPrediction = $env:KITTY_JA_PREDICTION
+    $savedHistoryDeleteKey = $env:KITTY_JA_HISTORY_DELETE_KEY
     try {
         $env:TERM_PROGRAM = 'WezTerm'
         foreach ($style in @('ListView', 'InlineView', '', 'bogus')) {
@@ -198,10 +200,67 @@ function Test-ShellIntegration {
             $label = if ($style) { $style } else { '(空)' }
             Assert-Condition ($LASTEXITCODE -eq 0) "KITTY_JA_PREDICTION=$label でも、エラーにならずに終わり、環境変数を消す"
         }
+        $env:KITTY_JA_PREDICTION = ''
+        foreach ($key in @('Shift+F7', '', 'bogus-key')) {
+            $env:KITTY_JA_HISTORY_DELETE_KEY = $key
+            $null = & $ShellPath -NoProfile -NoLogo -Command $command 2>&1
+            $label = if ($key) { $key } else { '(空)' }
+            Assert-Condition ($LASTEXITCODE -eq 0) "KITTY_JA_HISTORY_DELETE_KEY=$label でも、エラーにならずに終わり、環境変数を消し、履歴を消す関数が使える"
+        }
     } finally {
         $env:TERM_PROGRAM = $savedTermProgram
         $env:KITTY_JA_PREDICTION = $savedPrediction
+        $env:KITTY_JA_HISTORY_DELETE_KEY = $savedHistoryDeleteKey
     }
+}
+
+# 履歴ファイルの書き換え (history.ps1 の Remove-KittyJaHistoryText) を、文字列だけで確かめる。
+# 履歴を消す本体 (Remove-KittyJaHistory) は、対話の PSReadLine が要るので、ここでは動かさない
+function Test-HistoryRewrite {
+    param([string] $ShellPath)
+
+    Write-Output ''
+    Write-Output '== 履歴ファイルの書き換え (Remove-KittyJaHistoryText) =='
+    $historyScript = Join-Path (Join-Path (Join-Path $repositoryRoot 'kitty_ja') 'shell') 'history.ps1'
+    $checkScript = Join-Path $scratchRoot 'check-history-rewrite.ps1'
+    Set-Content -LiteralPath $checkScript -Encoding utf8 -Value @'
+param([string] $HistoryScript)
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+& $HistoryScript
+
+$crlf = "`r`n"
+$lf = "`n"
+$multiLineRaw = 'Format-Volume ``' + $lf + '  -DriveLetter F ``' + $lf + '  -FileSystem ReFS' + $crlf
+$multiLineLogical = 'Format-Volume `' + $lf + '  -DriveLetter F `' + $lf + '  -FileSystem ReFS'
+$failures = [System.Collections.Generic.List[string]]::new()
+function Assert-Rewrite {
+    param([string] $Label, [string] $Text, [string[]] $CommandLine, [string] $ExpectedText, [int] $ExpectedCount)
+    $result = Remove-KittyJaHistoryText -Text $Text -CommandLine $CommandLine
+    if ($result.Text -cne $ExpectedText -or $result.RemovedCount -ne $ExpectedCount) { $failures.Add($Label) }
+}
+
+Assert-Rewrite '単純な 1 行を消す' "a${crlf}b${crlf}c${crlf}" @('b') "a${crlf}c${crlf}" 1
+Assert-Rewrite '同じコマンドが複数あれば全部消す' "a${crlf}b${crlf}a${crlf}" @('a') "b${crlf}" 2
+Assert-Rewrite '複数行のコマンドを、続きの行ごと消す' "x${crlf}${multiLineRaw}y${crlf}" @($multiLineLogical) "x${crlf}y${crlf}" 1
+Assert-Rewrite '複数行のコマンドの 1 行目だけでは消えない' "x${crlf}${multiLineRaw}y${crlf}" @('Format-Volume `') "x${crlf}${multiLineRaw}y${crlf}" 0
+Assert-Rewrite '消さない複数行のコマンドは 1 バイトも変わらない' "x${crlf}${multiLineRaw}y${crlf}" @('x') "${multiLineRaw}y${crlf}" 1
+Assert-Rewrite '一致しなければ何も変わらない' "a${crlf}b${crlf}" @('zzz') "a${crlf}b${crlf}" 0
+Assert-Rewrite '行末が LF だけの行も消える' "a${crlf}b${lf}" @('b') "a${crlf}" 1
+Assert-Rewrite '末尾に改行が無い行も消える' "a${crlf}b" @('b') "a${crlf}" 1
+Assert-Rewrite '続きの無い途中のコマンドには触らない' ('a' + $crlf + 'b`' + $lf) @('b') ('a' + $crlf + 'b`' + $lf) 0
+Assert-Rewrite '空のファイル' '' @('a') '' 0
+Assert-Rewrite '日本語のコマンドも消える' "日本語のコマンド${crlf}b${crlf}" @('日本語のコマンド') "b${crlf}" 1
+
+if ($failures.Count -gt 0) {
+    $failures | ForEach-Object { "FAIL: $_" }
+    exit 1
+}
+'OK'
+'@
+    $result = Invoke-ScriptInChild -ShellPath $ShellPath -ScriptPath $checkScript -Arguments @($historyScript)
+    Assert-Condition ($result.ExitCode -eq 0) '履歴ファイルの書き換えが、複数行・重複・改行の違い・日本語で正しく働く'
+    if ($result.ExitCode -ne 0) { Write-Output $result.Output }
 }
 
 $shells = [System.Collections.Generic.List[object]]::new()
@@ -237,6 +296,8 @@ try {
         -Cleanup { $env:XDG_CONFIG_HOME = $null }
 
     Test-ShellIntegration -ShellPath $primaryShell
+
+    Test-HistoryRewrite -ShellPath $primaryShell
 
     Test-PackageBuild -ShellPath $primaryShell
 } finally {

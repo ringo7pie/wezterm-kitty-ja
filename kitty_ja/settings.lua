@@ -83,6 +83,14 @@ module.integration_script = wezterm.home_dir .. '\\.config\\wezterm\\kitty_ja\\s
 -- PSReadLine が予測に対応していない (Windows PowerShell 5.1 の PSReadLine 2.0.0 など) ときは、何も起きない
 module.history_prediction = 'ListView'
 
+-- 履歴 (PSReadLine) のコマンドを選んで消すキー (PSReadLine のキー名)。押すと一覧 (Out-GridView) が開き、
+-- 選んで OK を押したコマンドを、履歴ファイルと、そのシェルのメモリ内の履歴 (予測の元) から消す。
+-- 消した内容は、バックアップも含めてどこにも残さない。ほかのペインの pwsh は、開き直すまで予測に出す。
+-- integration.ps1 が pwsh の起動時に割り当てる。コマンド名は Remove-KittyJaHistory (キー無しでも使える)。
+--   'Shift+F7'   既定。PSReadLine の既定の割り当てと、この設定の WezTerm のキーに無い組
+--   false        キーを割り当てない
+module.history_delete_key = 'Shift+F7'
+
 -- colors.txt / memory.json / 設定ファイルを開くエディタ (kitty 側の nano に相当)。
 -- Notepad++ があればそれを、無ければメモ帳を使う
 local notepad_plus_plus = find_in_program_files('Notepad++\\notepad++.exe')

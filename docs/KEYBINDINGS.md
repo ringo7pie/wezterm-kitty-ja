@@ -302,6 +302,20 @@ KEY | 名前 | 選択中背景色 | 非選択背景色 | 選択中文字色(省�
 
 ---
 
+## シェル (PSReadLine) に割り当てているキー
+
+`commands.lua` の表には無い、PowerShell 7 の入力行だけで働くキー。WezTerm は何もせず、キーはそのままシェルへ届く。`kitty_ja\shell\integration.ps1` が pwsh の起動時に割り当てる。
+
+| 操作 | キー | 内容 |
+|---|---|---|
+| 履歴を選んで削除 | Shift+F7 (`settings.lua` の `history_delete_key`。`false` で割り当てない) | 履歴の一覧 (`Out-GridView`) が開く。消すコマンドを Ctrl / Shift で複数選択して OK を押すと、履歴ファイルと、そのシェルのメモリ内の履歴 (ListView の予測の元) から消える。窓を閉じるか何も選ばなければ、何も消えない。同じコマンドは一覧で 1 行にまとめ、履歴ファイルに何度あっても全部消える。消した内容は、バックアップも含めてどこにも残らない |
+
+- キーを使わなくても、pwsh で `Remove-KittyJaHistory` を実行すれば、同じ一覧が開く。`Remove-KittyJaHistory -CommandLine '<コマンドの全文>'` は、一覧を出さずにそのコマンドを消す。
+- ほかのペインの pwsh は、開き直すまで、消したコマンドを予測に出す。画面のスクロール履歴には、打ち込んだコマンドが残る。
+- Shift+F7 は、WezTerm の割り当て (`wezterm show-keys`。F7 は Ctrl+Shift+F7 の `focus_visible_window` だけ) と、PSReadLine の既定の割り当て (`Get-PSReadLineKeyHandler -Bound`、PSReadLine 2.4.5) のどちらにも無いことを確かめた。PSReadLine の `Alt+F7` は、履歴を全部消す `ClearHistory` である。
+
+---
+
 ## コマンド一覧 (Ctrl+Shift+F12) の使い方
 
 Ctrl+Shift+F12 (id: `palette`) で、WezTerm 内蔵の `InputSelector` (`fuzzy = true`) を使った日本語コマンドパレットが開く (`kitty_ja\palette.lua`)。

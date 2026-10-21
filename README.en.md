@@ -31,6 +31,10 @@ It is a Lua configuration module (`kitty_ja`) plus an installer that is safe to 
 - **History predictions** — a list of past commands matching what you are typing appears below the input line
   (PSReadLine prediction, `history_prediction` in `kitty_ja/settings.lua`; `$PROFILE` is not modified). Use `'InlineView'`
   for a single inline suggestion, or `false` to leave the setting to your own `$PROFILE`. Works in PowerShell 7 only.
+- **Delete history entries** — Shift+F7 opens the command history in `Out-GridView`; select entries (Ctrl / Shift for several) and
+  press OK to remove them from the history file and from this shell's predictions. No backup of the removed text is kept, so it is
+  safe for entries that contain passwords. Other panes keep predicting the removed entries until they are reopened. Change the key with
+  `history_delete_key` in `kitty_ja/settings.lua` (`false` to bind nothing), or run `Remove-KittyJaHistory` in pwsh.
 - **Safe defaults** — text printed in a terminal (from an ssh host or a displayed file) can only make the configuration open
   a restricted set of targets: http(s) URLs and existing non-executable files on local drives. Executable types and network paths are refused.
 
