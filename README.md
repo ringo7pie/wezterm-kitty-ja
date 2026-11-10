@@ -10,10 +10,16 @@ Lua で書いた設定モジュール (`kitty_ja`) と、安全に入れて外�
 
 English: [README.en.md](README.en.md)
 
+**[最新版をダウンロード](https://github.com/ringo7pie/wezterm-kitty-ja/releases/latest)** — 現在のリリース: [v1.0.0](https://github.com/ringo7pie/wezterm-kitty-ja/releases/tag/v1.0.0)。
+
 - **kitty と同じキー操作**: JIS 配列でも、同じキー位置で動きます (物理キーで割り当てています)。
 - **日本語のコマンド一覧**: Ctrl+Shift+F12 で開きます。ローマ字 (`tabu`、`pein`) や英語 (`new_tab`) で絞り込めます。
 - **タブ色と、フォルダごとのタブ名・タブ色の記憶**: Ctrl+Shift+Alt+数字で色を切り替えます。
 - **タブとペイン分割の復元**: 閉じたときの構成を、次の起動で戻します。
+- **スクリーンショットの貼り付け**: `Win+Shift+S` で画像をコピーし、`Ctrl+Shift+V` でローカルの Claude Code などに渡せます。
+  画像は PNG として保存し、そのパスを貼り付けます。文字の貼り付けも使えます。
+- **Notepad++ で履歴・設定を開く**: `Ctrl+Shift+E` でスクロール履歴、`Ctrl+Shift+F2` で設定ファイルを開きます。
+  `.wezterm.lua` の `notepadpp_override` で指定したパスを、両方の操作で共通して使います。
 - **GUI を閉じても、中のプログラムが残る** (mux-server 構成): シェルを `wezterm-mux-server` に持たせ、WezTerm の窓 (GUI) はそこへ接続します。
   窓を閉じたり、固まった窓を強制終了したりしても、中の Claude Code などは動き続けます。設定で止められます (下の「設定を変える」)。
 - **安全側の既定**: 端末に表示された文字列から、意図しないファイルが開かれたり実行されたりしないよう、開く対象を制限しています。
@@ -23,15 +29,15 @@ English: [README.en.md](README.en.md)
 必要なもの: Windows、[WezTerm](https://wezterm.org/)、[PowerShell 7](https://github.com/PowerShell/PowerShell)。
 **無ければ、インストーラーが winget で入れるかを尋ねます。**
 
-1. このリポジトリの [Releases](../../releases) から zip をダウンロードして展開します
-   (Releases が無いときは、緑の「Code」ボタン → 「Download ZIP」でも同じように使えます)。
+1. [最新版のリリース](https://github.com/ringo7pie/wezterm-kitty-ja/releases/latest) の **Assets** から、配布用 ZIP をダウンロードして展開します。
+   v1.0.0 のファイル名は [wezterm-kitty-ja-1.0.0.zip](https://github.com/ringo7pie/wezterm-kitty-ja/releases/download/v1.0.0/wezterm-kitty-ja-1.0.0.zip) です。
 2. 展開したフォルダの **`install.cmd` をダブルクリック**します。
    Windows の確認画面 (SmartScreen) が出たら、「詳細情報」→「実行」を選びます。
 3. 画面の質問に答えます。最後に「WezTerm を起動しますか」と尋ねるので、`Y` を入力して Enter を押すと WezTerm の窓が開きます。
 
 Ctrl+Shift+F12 を押すと、使えるコマンドの一覧が開きます。
 
-> zip を検証したいときは、同じ場所にある `.zip.sha256` と、PowerShell の `Get-FileHash -Algorithm SHA256 <zip>` の結果を比べます。
+> ZIP を検証したいときは、同じ Assets の [wezterm-kitty-ja-1.0.0.zip.sha256](https://github.com/ringo7pie/wezterm-kitty-ja/releases/download/v1.0.0/wezterm-kitty-ja-1.0.0.zip.sha256) と、PowerShell の `Get-FileHash -Algorithm SHA256 <zip>` の結果を比べます。
 
 ### 動作確認の環境
 
@@ -167,6 +173,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 - **PowerShell 7 の場所**: 既定のインストール先と PATH から自動で探します。Microsoft Store 版は自動で見つけられないので、
   ユーザーの環境変数 `KITTY_JA_PWSH` に `pwsh.exe` のパスを設定します (インストーラーがパスを表示します)。
 - **エディタ**: Notepad++ があればそれを、無ければメモ帳を使います。
+  標準以外の場所にある Notepad++ は、`.wezterm.lua` の `notepadpp_override` に実行ファイルのパスを指定します。
+  この指定は、スクロール履歴の表示 (`Ctrl+Shift+E`) と設定編集 (`Ctrl+Shift+F2`) などに共通で反映されます。
 - 設定ファイルを書き換えると、WezTerm が自動で読み直します。手動なら Ctrl+Shift+F5 です。
 
 ### データ

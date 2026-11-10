@@ -12,6 +12,8 @@ It is a Lua configuration module (`kitty_ja`) plus an installer that is safe to 
 
 日本語: [README.md](README.md)
 
+**[Download the latest release](https://github.com/ringo7pie/wezterm-kitty-ja/releases/latest)** — Current release: [v1.0.0](https://github.com/ringo7pie/wezterm-kitty-ja/releases/tag/v1.0.0).
+
 > The user interface strings (command names, installer messages) and most of the documentation under `docs/` are in Japanese.
 
 ## Features
@@ -25,9 +27,11 @@ It is a Lua configuration module (`kitty_ja`) plus an installer that is safe to 
   `wezterm-mux-server`, and the WezTerm window (GUI) just connects to it. Closing or force-killing the window keeps the
   programs inside it (for example a Claude Code session) running. Set `mux_server = false` to turn it off.
   Running programs and the screen contents are not restored.
-- **Scrollback in Notepad++** (Ctrl+Shift+E, also Ctrl+Alt+Shift+F12) — writes the screen and scrollback to
+- **Scrollback and configuration in Notepad++** — Ctrl+Shift+E (also Ctrl+Alt+Shift+F12) writes the screen and scrollback to
   `%TEMP%\wezterm-history-<timestamp>-pane-<id>.txt` and opens it in Notepad++. This replaces kitty's Ctrl+Shift+E
   ("open URL with hints"), which stays available from the palette. The history file is **not** deleted automatically.
+  Ctrl+Shift+F2 opens the WezTerm configuration. For a custom Notepad++ installation, set `notepadpp_override` in `.wezterm.lua`;
+  the specified executable is used for both scrollback and configuration editing.
 - **Paste screenshots** (Ctrl+Shift+V) — copy an image with Win+Shift+S, then paste it into a local Claude Code session.
   The image is saved as a PNG under `%TEMP%\wezterm-clipboard\` and its quoted path is pasted. Text pastes work as before.
   Saved PNG files are not deleted automatically.
@@ -46,14 +50,14 @@ It is a Lua configuration module (`kitty_ja`) plus an installer that is safe to 
 Requirements: Windows, [WezTerm](https://wezterm.org/), [PowerShell 7](https://github.com/PowerShell/PowerShell).
 **If either is missing, the installer offers to install it with winget.**
 
-1. Download the zip from [Releases](../../releases) and extract it
-   (or use *Code → Download ZIP* if there is no release yet).
+1. Download the distribution ZIP from **Assets** on the [latest release](https://github.com/ringo7pie/wezterm-kitty-ja/releases/latest) and extract it.
+   For v1.0.0, the file is [wezterm-kitty-ja-1.0.0.zip](https://github.com/ringo7pie/wezterm-kitty-ja/releases/download/v1.0.0/wezterm-kitty-ja-1.0.0.zip).
 2. Double-click **`install.cmd`**. If Windows SmartScreen appears, choose *More info → Run anyway*.
 3. Answer the prompts. At the end, answer `Y` to *start WezTerm* to open a window with the new configuration.
 
 Press Ctrl+Shift+F12 to see every command.
 
-To verify the zip, compare the `.zip.sha256` file with `Get-FileHash -Algorithm SHA256 <zip>`.
+To verify the ZIP, compare [wezterm-kitty-ja-1.0.0.zip.sha256](https://github.com/ringo7pie/wezterm-kitty-ja/releases/download/v1.0.0/wezterm-kitty-ja-1.0.0.zip.sha256) from the same Assets section with `Get-FileHash -Algorithm SHA256 <zip>`.
 
 Tested with: Windows 11, WezTerm 20240203-110809-5046fc22, PowerShell 7.6.
 The installer itself runs on both Windows PowerShell 5.1 and PowerShell 7; the terminal's shell is PowerShell 7.
