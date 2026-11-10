@@ -136,6 +136,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
   Notepad++ が無いときは、ファイルの場所を通知します。**このファイルは自動では消えません**。
   パスワードなどを表示したあとは、手で削除してください。
   なお、kitty の Ctrl+Shift+E (画面上の URL を選んで開く) は、この操作に差し替えています。URL を選んで開くには、コマンド一覧から実行します。
+- **画像を貼り付ける**: `Win+Shift+S` などで画像をコピーし、`Ctrl+Shift+V` で貼り付けます。
+  画像は `%TEMP%\wezterm-clipboard\` に PNG として保存し、そのパスを貼り付けます。ローカルの Claude Code などに画像を渡せます。
+  文字のコピー・貼り付けは従来どおりです。保存した PNG は自動では消えません。
 - **ログのスクロール**: PageUp / PageDown で 1 ページずつスクロールし、Ctrl+Home でログの先頭、Ctrl+End でログの末尾へ移動します。
   vim や less のような全画面のアプリの中では、そのアプリへキーをそのまま渡します。
   Ctrl+Shift+PageUp / PageDown / Home / End は従来どおりです。

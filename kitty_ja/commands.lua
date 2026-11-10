@@ -148,7 +148,7 @@ module.entries = {
 
   -- コピー・貼り付け
   { id = 'copy_to_clipboard', keys = { 'ctrl+shift+c' }, label = 'Ctrl+Shift+C', name = '選択範囲をクリップボードへコピー', yomi = 'sentaku hani wo kurippubo-do he kopi-', category = 'コピー・貼り付け', action = act.CopyTo 'Clipboard' },
-  { id = 'paste_from_clipboard', keys = { 'ctrl+shift+v' }, label = 'Ctrl+Shift+V', name = 'クリップボードから貼り付け', yomi = 'kurippubo-do kara haritsuke', category = 'コピー・貼り付け', action = act.PasteFrom 'Clipboard' },
+  { id = 'paste_from_clipboard', keys = { 'ctrl+shift+v' }, label = 'Ctrl+Shift+V', name = 'クリップボードから貼り付け (画像は PNG のパス)', yomi = 'kurippubo-do kara haritsuke gazou png pasu', category = 'コピー・貼り付け', action = panes.paste_from_clipboard },
   { id = 'paste_from_selection', keys = { 'ctrl+shift+s', 'shift+insert' }, label = 'Ctrl+Shift+S', name = '選択範囲 (無ければクリップボード) を貼り付け', yomi = 'sentaku hani nakereba kurippubo-do wo haritsuke', category = 'コピー・貼り付け', action = panes.paste_from_selection },
   { id = 'pass_selection_to_program', keys = { 'ctrl+shift+o' }, label = 'Ctrl+Shift+O', name = '選択内容を外部プログラムへ渡す', yomi = 'sentaku naiyou wo gaibu puroguramu he watasu', category = 'コピー・貼り付け', action = panes.pass_selection_to_program },
 

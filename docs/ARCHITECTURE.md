@@ -327,6 +327,7 @@ PowerShell 7 が見つからないときは、Windows PowerShell を `System32` 
 - **最大化の切り替え**（`panes.toggle_maximized`）: 最大化の状態を取得する API が無いので、`state.lua` の `maximized` に自分で覚える。
 - **代替画面の判定**（`commands.lua` の `scroll_or_pass_through`、`is_alt_screen`）: 修飾キーなしの PageUp / PageDown と Ctrl+Home / Ctrl+End は、代替画面（alternate screen）が有効なら（vim や less、codex の中）そのままアプリへ送り、そうでなければログをスクロールする。修飾キーなしの Home / End は割り当てない（シェルの入力行で行頭・行末へ移動できる）。mux-server 構成のペインの判定は 4.11 を参照。
 - **選択範囲の貼り付け**（`panes.paste_from_selection`）: Windows には Primary Selection が無いので、選択中の文字列があればそれを、無ければクリップボードを貼る。
+- **画像の貼り付け**（`clipboard.lua`、`shell/clipboard-image.ps1`）: GUI 側のローカルのクリップボードを読み、画像を `%TEMP%\wezterm-clipboard\` に一意な名前の PNG として保存する。そのパスを引用符付きでペインへ貼り付ける。画像が無ければ標準の文字の貼り付けを使う。クリップボードは変更しない。
 - **フォントサイズ・透明度**（`panes.change_font_size`、`panes.set_background_opacity`）: ウィンドウごとの上書き設定（`set_config_overrides`）で変える。フォントは倍率ではなくポイント数で増減する。
 
 ### 4.11 mux-server 構成（mux.lua）

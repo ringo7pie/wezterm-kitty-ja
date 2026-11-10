@@ -106,11 +106,12 @@
 | 操作 (日本語名) | キー | id |
 |---|---|---|
 | 選択範囲をクリップボードへコピー | Ctrl+Shift+C | `copy_to_clipboard` |
-| クリップボードから貼り付け | Ctrl+Shift+V | `paste_from_clipboard` |
+| クリップボードから貼り付け (画像は PNG のパス) | Ctrl+Shift+V | `paste_from_clipboard` |
 | 選択範囲 (無ければクリップボード) を貼り付け | Ctrl+Shift+S (または Shift+Insert) | `paste_from_selection` |
 | 選択内容を外部プログラムへ渡す | Ctrl+Shift+O | `pass_selection_to_program` |
 
 - `paste_from_selection` は、Windows には Primary Selection が無いための代替実装。選択中の文字列があればそれを、無ければクリップボードを貼る (コードのコメント)。
+- 画像をコピーして `Ctrl+Shift+V` (または選択文字列が無い状態で `Shift+Insert`) を押すと、`%TEMP%\wezterm-clipboard\` に PNG として保存し、そのパスを引用符付きで貼り付ける。ローカルの Claude Code などに画像ファイルを渡せる。文字の場合は従来どおり貼り付ける。画像ファイルとクリップボードの内容は自動では削除・変更しない。
 - `pass_selection_to_program` には安全のための制限がある。開くのは http(s) の URL と、この PC のドライブにあるフォルダ・実行形式でない実在のファイルだけ (詳細は README.md の「安全のための制限」節)。
 
 ## 表示・フォント (9件)

@@ -21,6 +21,7 @@ end
 config.scrollback_lines = math.max(config.scrollback_lines or 0, 100000)
 
 -- Notepad++ を標準以外の場所にインストールした場合のみ、実際のパスを指定する。
+-- 履歴表示 (Ctrl+Shift+E) と設定編集 (Ctrl+Shift+F2) などで共通して使う。
 -- 例: local notepadpp_override = 'E:\\Program Files\\Notepad++\\notepad++.exe'
 local notepadpp_override = nil
 
@@ -57,6 +58,16 @@ local function find_notepadpp()
     end
   end
   return nil
+end
+
+-- kitty_ja の設定・色・タブ記憶の編集にも、同じ明示指定を反映する。
+-- 未指定の場合は settings.lua のエディタ設定を維持する。
+if notepadpp_override and file_exists(notepadpp_override) then
+  local settings_ok, settings = pcall(require, 'kitty_ja.settings')
+  if settings_ok then
+    settings.editor_command = { notepadpp_override }
+    settings.editor_line_option = '-n'
+  end
 end
 
 -- Ctrl+Shift+E: フォーカス中のペインの表示内容とスクロール履歴を

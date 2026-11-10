@@ -28,6 +28,9 @@ It is a Lua configuration module (`kitty_ja`) plus an installer that is safe to 
 - **Scrollback in Notepad++** (Ctrl+Shift+E, also Ctrl+Alt+Shift+F12) — writes the screen and scrollback to
   `%TEMP%\wezterm-history-<timestamp>-pane-<id>.txt` and opens it in Notepad++. This replaces kitty's Ctrl+Shift+E
   ("open URL with hints"), which stays available from the palette. The history file is **not** deleted automatically.
+- **Paste screenshots** (Ctrl+Shift+V) — copy an image with Win+Shift+S, then paste it into a local Claude Code session.
+  The image is saved as a PNG under `%TEMP%\wezterm-clipboard\` and its quoted path is pasted. Text pastes work as before.
+  Saved PNG files are not deleted automatically.
 - **History predictions** — a list of past commands matching what you are typing appears below the input line
   (PSReadLine prediction, `history_prediction` in `kitty_ja/settings.lua`; `$PROFILE` is not modified). Use `'InlineView'`
   for a single inline suggestion, or `false` to leave the setting to your own `$PROFILE`. Works in PowerShell 7 only.

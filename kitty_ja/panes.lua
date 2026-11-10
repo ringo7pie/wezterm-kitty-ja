@@ -2,6 +2,7 @@
 local wezterm = require 'wezterm'
 local settings = require 'kitty_ja.settings'
 local state = require 'kitty_ja.state'
+local clipboard = require 'kitty_ja.clipboard'
 
 local act = wezterm.action
 local module = {}
@@ -130,6 +131,8 @@ end)
 
 -- ---------------------------------------------------------------- コピー&ペースト
 
+module.paste_from_clipboard = guarded(clipboard.paste)
+
 -- paste_from_selection: Windows には Primary Selection が無いので、
 -- 選択中の文字列があればそれを、無ければクリップボードを貼る
 module.paste_from_selection = guarded(function(window, pane)
@@ -137,7 +140,7 @@ module.paste_from_selection = guarded(function(window, pane)
   if text and #text > 0 then
     pane:send_paste(text)
   else
-    window:perform_action(act.PasteFrom 'Clipboard', pane)
+    clipboard.paste(window, pane)
   end
 end)
 

@@ -73,6 +73,8 @@ module.shell_program = find_pwsh()
 -- PowerShell 7 が無いときに使う Windows PowerShell
 module.fallback_shell_program = system_directory .. '\\WindowsPowerShell\\v1.0\\powershell.exe'
 module.integration_script = wezterm.home_dir .. '\\.config\\wezterm\\kitty_ja\\shell\\integration.ps1'
+-- 画像のクリップボードを PNG に保存するヘルパー (GUI 側からローカルで実行する)。
+module.clipboard_image_script = wezterm.home_dir .. '\\.config\\wezterm\\kitty_ja\\shell\\clipboard-image.ps1'
 
 -- 履歴の予測候補 (PSReadLine の予測。入力しかけの文字に合う過去のコマンドを出す)。integration.ps1 が pwsh の起動時に設定する。
 --   'ListView'   候補の一覧を入力行の下に出す

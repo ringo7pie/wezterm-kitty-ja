@@ -13,6 +13,8 @@
 - タブ色の切り替えと、フォルダごとのタブ名・タブ色の記憶
 - 閉じたときのタブとペイン分割の、次回起動時の復元
 - スクロール履歴を Notepad++ で開く操作 (Ctrl+Shift+E)。保持するスクロール履歴を 10 万行以上にする設定
+- クリップボードの画像を PNG として保存し、そのパスを貼り付ける操作 (Ctrl+Shift+V)。
+  スクリーンショットをローカルの Claude Code などに渡せる。文字の貼り付けと選択文字列の優先を維持し、保存した PNG は自動では消さない
 - 修飾キーなしの PageUp / PageDown でログを 1 ページずつスクロールする割り当て
 - Ctrl+Home / Ctrl+End でログの先頭・末尾へ移動する割り当て (全画面のアプリには、キーをそのまま渡す)。
   修飾キーなしの Home / End は割り当てず、シェルの入力行で行頭・行末へ移動できる
@@ -48,6 +50,8 @@
 
 ### 修正
 
+- `.wezterm.lua` の `notepadpp_override` を、設定編集 (Ctrl+Shift+F2) などのエディタ指定にも反映するようにした。
+  これまではスクロール履歴表示 (Ctrl+Shift+E) にしか使われず、設定編集ではメモ帳が開く場合があった
 - mux-server 構成で、codex など代替画面 (alternate screen) を使うアプリの中で、PageUp / PageDown・Ctrl+Home / Ctrl+End が効かない問題。
   mux 経由のペインは `pane:is_alt_screen_active()` が常に false を返すので、キーをアプリへ渡さず、何も動かない WezTerm のスクロールになっていた。
   mux のペインは、サーバーから届く画面の大きさ (`scrollback_rows` が `viewport_rows` 以下) で代替画面を判定する (`commands.lua`)。
