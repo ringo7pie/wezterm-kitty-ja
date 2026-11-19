@@ -31,5 +31,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
+        # リリースを手で先に作ってあるとき (リリース文を書いてからタグを push したときなど) は作り直さず、
+        # このコミットから作った zip と sha256 で添付ファイルを上書きする。リリース文・題名はそのまま残す
         run: |
-          gh release create $env:TAG_NAME $env:ZIP_PATH "$($env:ZIP_PATH).sha256" --title $env:TAG_NAME --generate-notes
+          $assets = @($env:ZIP_PATH, "$($env:ZIP_PATH).sha256")
+          gh release view $env:TAG_NAME --json tagName *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "リリース $env:TAG_NAME は既にあります。添付ファイルを上書きします"
+            gh release upload $env:TAG_NAME @assets --clobber
+          } else {
+            gh release create $env:TAG_NAME @assets --title $env:TAG_NAME --generate-notes
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
