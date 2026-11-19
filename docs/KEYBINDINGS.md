@@ -2,15 +2,15 @@
 
 この表は `kitty_ja\commands.lua` のコマンド表から作った。
 
-- 項目数 (全体): **79 件** (`module.entries` の静的な項目 69 件 + ペイン番号ジャンプ用に実行時生成される 10 件)
+- 項目数 (全体): **80 件** (`module.entries` の静的な項目 70 件 + ペイン番号ジャンプ用に実行時生成される 10 件)
 - うち hidden (日本語コマンドパレットに出さない項目): **18 件** (静的 8 件 + ペイン番号ジャンプ 10 件)
-- 日本語コマンドパレットに出る項目: **61 件**
+- 日本語コマンドパレットに出る項目: **62 件**
 
 件数は手で数えず、`Select-String` で次のように数えて確認した。
 
 ```powershell
-# "id = '" の総数 71 から、実行時に複数件を生成するテンプレート行 2 件 (ペイン番号ジャンプ用・タブ色用) を除く
-(Select-String -Path kitty_ja\commands.lua -Pattern "id = '").Count   # 71
+# "id = '" の総数 72 から、実行時に複数件を生成するテンプレート行 2 件 (ペイン番号ジャンプ用・タブ色用) を除く
+(Select-String -Path kitty_ja\commands.lua -Pattern "id = '").Count   # 72
 (Select-String -Path kitty_ja\commands.lua -Pattern "hidden = true").Count  # 9 (= 静的 8 行 + ループ内 1 行)
 ```
 
@@ -114,7 +114,7 @@
 - 画像をコピーして `Ctrl+Shift+V` (または選択文字列が無い状態で `Shift+Insert`) を押すと、`%TEMP%\wezterm-clipboard\` に PNG として保存し、そのパスを引用符付きで貼り付ける。ローカルの Claude Code などに画像ファイルを渡せる。文字の場合は従来どおり貼り付ける。画像ファイルとクリップボードの内容は自動では削除・変更しない。
 - `pass_selection_to_program` には安全のための制限がある。開くのは http(s) の URL と、この PC のドライブにあるフォルダ・実行形式でない実在のファイルだけ (詳細は README.md の「安全のための制限」節)。
 
-## 表示・フォント (9件)
+## 表示・フォント (10件)
 
 | 操作 (日本語名) | キー | id |
 |---|---|---|
@@ -123,6 +123,7 @@
 | フォントサイズを初期値へ戻す | Ctrl+Shift+Backspace | `reset_font_size` |
 | フルスクリーン ON/OFF | Ctrl+Shift+F11 | `toggle_fullscreen` |
 | 最大化 ON/OFF | Ctrl+Shift+F10 | `toggle_maximized` |
+| 描画方式を切り替える (DX12 ⇔ Vulkan) | Ctrl+Shift+F9 | `toggle_render_mode` |
 | 背景をより不透明にする | Ctrl+Shift+A → M | `opacity_more` |
 | 背景をより透明にする | Ctrl+Shift+A → L | `opacity_less` |
 | 背景を完全に不透明にする | Ctrl+Shift+A → 1 | `opacity_full` |

@@ -75,6 +75,8 @@ module.fallback_shell_program = system_directory .. '\\WindowsPowerShell\\v1.0\\
 module.integration_script = wezterm.home_dir .. '\\.config\\wezterm\\kitty_ja\\shell\\integration.ps1'
 -- 画像のクリップボードを PNG に保存するヘルパー (GUI 側からローカルで実行する)。
 module.clipboard_image_script = wezterm.home_dir .. '\\.config\\wezterm\\kitty_ja\\shell\\clipboard-image.ps1'
+-- 描画方式を切り替えたあと、GUI を起動し直すヘルパー (mux-server 構成のときだけ使う)
+module.restart_gui_script = wezterm.home_dir .. '\\.config\\wezterm\\kitty_ja\\shell\\restart-gui.ps1'
 
 -- 履歴の予測候補 (PSReadLine の予測。入力しかけの文字に合う過去のコマンドを出す)。integration.ps1 が pwsh の起動時に設定する。
 --   'ListView'   候補の一覧を入力行の下に出す
@@ -111,7 +113,12 @@ module.font_size = 11
 --   'cpu'         WebGpu の CPU アダプタ (Windows 標準の WARP) で描く。止まらなかったが、paint 414 ms と重い
 -- paint は、出力が流れ続けるときの 1 回の描画の中央値。別の PC・GPU では結果が変わりうる。
 -- 開いている窓は設定の再読み込みでは切り替わらない。変えたら WezTerm を起動し直す
+-- GPU 専用メモリ (2026-11-19、RTX 3070。1 窓 1 タブの最小構成): 'webgpu-dx12' 327 MB、'webgpu' 54 MB、'opengl' 73 MB。
+-- 'webgpu-dx12' は使っているうちに 600 MB 台まで増えた
 module.render_mode = 'webgpu-dx12'
+-- Ctrl+Shift+F9 (パレットの「描画方式を切り替える」) で選んだ方式の保存先。'webgpu-dx12' か 'webgpu' が書かれていれば、
+-- render_mode より優先する。消すと render_mode に戻る
+module.render_mode_file = data_dir .. '\\render-mode.txt'
 
 -- true: シェルを wezterm-mux-server に持たせ、GUI はそこへ接続するだけにする (mux.lua)。
 -- GUI を閉じる・固まった GUI を強制終了する・GUI を起動し直しても、シェルとその中のプログラム (Claude Code など) は動き続ける。

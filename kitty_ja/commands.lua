@@ -15,6 +15,7 @@
 local wezterm = require 'wezterm'
 local settings = require 'kitty_ja.settings'
 local panes = require 'kitty_ja.panes'
+local appearance = require 'kitty_ja.appearance'
 local tab_colors = require 'kitty_ja.tab_colors'
 local tab_memory = require 'kitty_ja.tab_memory'
 
@@ -159,6 +160,7 @@ module.entries = {
   { id = 'reset_font_size', keys = { 'ctrl+shift+backspace' }, label = 'Ctrl+Shift+Backspace', name = 'フォントサイズを初期値へ戻す', yomi = 'fonto saizu wo shokichi he modosu', category = '表示・フォント', action = panes.reset_font_size },
   { id = 'toggle_fullscreen', keys = { 'ctrl+shift+f11' }, label = 'Ctrl+Shift+F11', name = 'フルスクリーン ON/OFF', yomi = 'furusukuri-n on off', category = '表示・フォント', action = act.ToggleFullScreen },
   { id = 'toggle_maximized', keys = { 'ctrl+shift+f10' }, label = 'Ctrl+Shift+F10', name = '最大化 ON/OFF', yomi = 'saidaika on off', category = '表示・フォント', action = panes.toggle_maximized },
+  { id = 'toggle_render_mode', keys = { 'ctrl+shift+f9' }, label = 'Ctrl+Shift+F9', name = '描画方式を切り替える (DX12 ⇔ Vulkan)', yomi = 'byouga houshiki wo kirikaeru directx vulkan', category = '表示・フォント', action = callback(appearance.toggle_render_mode) },
   { id = 'opacity_more', keys = { 'ctrl+shift+a>m' }, label = 'Ctrl+Shift+A>M', name = '背景をより不透明にする', yomi = 'haikei wo yori futoumei ni suru', category = '表示・フォント', action = panes.set_background_opacity(settings.opacity_step) },
   { id = 'opacity_less', keys = { 'ctrl+shift+a>l' }, label = 'Ctrl+Shift+A>L', name = '背景をより透明にする', yomi = 'haikei wo yori toumei ni suru', category = '表示・フォント', action = panes.set_background_opacity(-settings.opacity_step) },
   { id = 'opacity_full', keys = { 'ctrl+shift+a>1' }, label = 'Ctrl+Shift+A>1', name = '背景を完全に不透明にする', yomi = 'haikei wo kanzen ni futoumei ni suru', category = '表示・フォント', action = panes.set_background_opacity('full') },
