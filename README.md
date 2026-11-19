@@ -22,6 +22,8 @@ English: [README.en.md](README.en.md)
   `.wezterm.lua` の `notepadpp_override` で指定したパスを、両方の操作で共通して使います。
 - **GUI を閉じても、中のプログラムが残る** (mux-server 構成): シェルを `wezterm-mux-server` に持たせ、WezTerm の窓 (GUI) はそこへ接続します。
   窓を閉じたり、固まった窓を強制終了したりしても、中の Claude Code などは動き続けます。設定で止められます (下の「設定を変える」)。
+- **描画方式の切り替え**: `Ctrl+Shift+F9` で DirectX 12 (既定) と Vulkan を切り替えます。Vulkan にすると、GPU メモリの使用量が減ります。
+  窓は自動で開き直し、位置・大きさ・開いていたタブと、中のプログラムはそのまま残ります。
 - **安全側の既定**: 端末に表示された文字列から、意図しないファイルが開かれたり実行されたりしないよう、開く対象を制限しています。
 
 ## クイックスタート
@@ -145,6 +147,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 - **画像を貼り付ける**: `Win+Shift+S` などで画像をコピーし、`Ctrl+Shift+V` で貼り付けます。
   画像は `%TEMP%\wezterm-clipboard\` に PNG として保存し、そのパスを貼り付けます。ローカルの Claude Code などに画像を渡せます。
   文字のコピー・貼り付けは従来どおりです。保存した PNG は自動では消えません。
+- **描画方式の切り替え**: `Ctrl+Shift+F9` (コマンド一覧の「描画方式を切り替える (DX12 ⇔ Vulkan)」) を押すたびに、
+  DirectX 12 (既定) と Vulkan が入れ替わります。DirectX 12 は描画が速く、Vulkan は GPU メモリの使用量が少なくなります。
+  作者の PC (RTX 3070) では、DirectX 12 は使っているうちに専用 GPU メモリが 600 MB 台まで増え、Vulkan では約 50〜90 MB でした。
+  1 回の描画は DirectX 12 が 1.7 ms、Vulkan が 14 ms です。どちらも、RDP とコンソールの切り替えで画面が止まりません。
+  開いている窓は設定の再読み込みでは描画方式が変わらないので、押すと WezTerm の窓を自動で開き直します。
+  mux-server 構成 (既定) では、シェルはサーバーに残るので、タブ・ペインと中のプログラムはそのままです。
+  新しい窓は、元の窓の位置・大きさ (最大化を含む)・開いていたタブを引き継ぎます。窓が開き直るまで (2〜3 秒)、続けて押さないでください。
+  選んだ方式は `%USERPROFILE%\.config\wezterm-kitty-ja\render-mode.txt` に保存され、次の起動でも使われます。
+  このファイルを消すと、`kitty_ja\settings.lua` の `render_mode` に戻ります。
+  mux-server 構成を止めている (`mux_server = false`) ときは、窓を閉じると中のシェルが終わるので、自動では開き直しません。次に起動したときから効きます。
 - **ログのスクロール**: PageUp / PageDown で 1 ページずつスクロールし、Ctrl+Home でログの先頭、Ctrl+End でログの末尾へ移動します。
   vim や less のような全画面のアプリの中では、そのアプリへキーをそのまま渡します。
   Ctrl+Shift+PageUp / PageDown / Home / End は従来どおりです。

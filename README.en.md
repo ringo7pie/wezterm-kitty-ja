@@ -27,6 +27,13 @@ It is a Lua configuration module (`kitty_ja`) plus an installer that is safe to 
   `wezterm-mux-server`, and the WezTerm window (GUI) just connects to it. Closing or force-killing the window keeps the
   programs inside it (for example a Claude Code session) running. Set `mux_server = false` to turn it off.
   Running programs and the screen contents are not restored.
+- **Switch the renderer** (Ctrl+Shift+F9, "描画方式を切り替える (DX12 ⇔ Vulkan)" in the palette) — toggles between DirectX 12 (default)
+  and Vulkan. DirectX 12 draws faster; Vulkan uses less GPU memory. On the author's PC (RTX 3070), DirectX 12 grew to 600+ MB of
+  dedicated GPU memory over time, while Vulkan stayed around 50–90 MB. An open window cannot change its renderer on a config reload,
+  so the WezTerm window is restarted automatically. In mux-server mode the shells stay on the server, and the new window keeps the
+  position, size (including maximized) and active tab of the old one. The choice is saved to
+  `%USERPROFILE%\.config\wezterm-kitty-ja\render-mode.txt`; delete it to fall back to `render_mode` in `kitty_ja/settings.lua`.
+  With `mux_server = false`, the window is not restarted (closing it would end the shells); the choice applies from the next launch.
 - **Scrollback and configuration in Notepad++** — Ctrl+Shift+E (also Ctrl+Alt+Shift+F12) writes the screen and scrollback to
   `%TEMP%\wezterm-history-<timestamp>-pane-<id>.txt` and opens it in Notepad++. This replaces kitty's Ctrl+Shift+E
   ("open URL with hints"), which stays available from the palette. The history file is **not** deleted automatically.
