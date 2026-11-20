@@ -34,6 +34,7 @@ local environment = setmetatable({
     if name == 'kitty_ja.settings' then return settings end
     if name == 'kitty_ja.state' then return {} end
     if name == 'kitty_ja.clipboard' then return clipboard end
+    if name == 'kitty_ja.unwrap' then return {} end
     error('Unexpected module: ' .. name)
   end,
 }, { __index = _G })

@@ -21,6 +21,7 @@ Issue と Pull Request を歓迎します。
 .\tools\Test-Installer.ps1    # インストーラーと配布物の検査。実際のホームには触らない
 wezterm show-keys             # 設定したキー割り当てを、窓を開かずに確かめる
 wezterm --config-file tools/Test-Clipboard.lua show-keys # 画像・文字の貼り付けの受け渡しを検査する
+wezterm --config-file tools/Test-Unwrap.lua show-keys    # コピーで折り返しの改行だけが消えることを検査する (ログに PASS が出る)
 ```
 
 - `kitty_ja\` を変えたときは、WezTerm を起動して動作を確かめてください。

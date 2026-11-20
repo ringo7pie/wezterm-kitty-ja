@@ -42,6 +42,11 @@ It is a Lua configuration module (`kitty_ja`) plus an installer that is safe to 
 - **Paste screenshots** (Ctrl+Shift+V) — copy an image with Win+Shift+S, then paste it into a local Claude Code session.
   The image is saved as a PNG under `%TEMP%\wezterm-clipboard\` and its quoted path is pasted. Text pastes work as before.
   Saved PNG files are not deleted automatically.
+- **Copy without wrap newlines** — mouse selection (drag, double/triple click) and Ctrl+Shift+C remove the newlines inserted
+  where a line was wrapped at the pane width, including output that Claude Code and Codex wrap themselves. Blank lines,
+  list items, and lines with box-drawing characters are kept apart. Lines are joined when the previous line fills the width or the
+  next line's first word would not have fitted, so long lines of ordinary shell output may also be joined. Block selection
+  (Alt+drag) is unchanged.
 - **History predictions** — a list of past commands matching what you are typing appears below the input line
   (PSReadLine prediction, `history_prediction` in `kitty_ja/settings.lua`; `$PROFILE` is not modified). Use `'InlineView'`
   for a single inline suggestion, or `false` to leave the setting to your own `$PROFILE`. Works in PowerShell 7 only.

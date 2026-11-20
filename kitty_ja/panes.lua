@@ -3,6 +3,7 @@ local wezterm = require 'wezterm'
 local settings = require 'kitty_ja.settings'
 local state = require 'kitty_ja.state'
 local clipboard = require 'kitty_ja.clipboard'
+local unwrap = require 'kitty_ja.unwrap'
 
 local act = wezterm.action
 local module = {}
@@ -132,6 +133,11 @@ end)
 -- ---------------------------------------------------------------- コピー&ペースト
 
 module.paste_from_clipboard = guarded(clipboard.paste)
+
+-- copy_to_clipboard: ペインの幅で折り返した位置の改行を除いてコピーする (unwrap.lua)
+module.copy_selection_unwrapped = guarded(function(window, pane)
+  unwrap.copy_selection(window, pane, 'Clipboard')
+end)
 
 -- paste_from_selection: Windows には Primary Selection が無いので、
 -- 選択中の文字列があればそれを、無ければクリップボードを貼る

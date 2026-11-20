@@ -12,6 +12,7 @@ local shell = require 'kitty_ja.shell'
 local state = require 'kitty_ja.state'
 local mux = require 'kitty_ja.mux'
 local keys = require 'kitty_ja.keys'
+local mouse = require 'kitty_ja.mouse'
 local palette = require 'kitty_ja.palette'
 local tab_colors = require 'kitty_ja.tab_colors'
 local tab_memory = require 'kitty_ja.tab_memory'
@@ -31,6 +32,7 @@ function module.apply_to_config(config)
   keys.apply(config)
   -- keys.apply が config.keys を作り直すので、mux 経由で失われるキーの補正は、その後に足す
   mux.apply_keys(config)
+  mouse.apply(config)
 
   -- colors.txt を保存したら設定を読み直し、タブ色のキーを更新する
   wezterm.add_to_config_reload_watch_list(settings.colors_file)
