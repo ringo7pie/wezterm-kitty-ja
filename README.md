@@ -10,7 +10,7 @@ Lua で書いた設定モジュール (`kitty_ja`) と、安全に入れて外�
 
 English: [README.en.md](README.en.md)
 
-**[最新版をダウンロード](https://github.com/ringo7pie/wezterm-kitty-ja/releases/latest)** — 現在のリリース: [v1.1.0](https://github.com/ringo7pie/wezterm-kitty-ja/releases/tag/v1.1.0)。
+**[最新版をダウンロード](https://github.com/ringo7pie/wezterm-kitty-ja/releases/latest)** — 現在のリリース: [v1.2.0](https://github.com/ringo7pie/wezterm-kitty-ja/releases/tag/v1.2.0)。
 
 - **kitty と同じキー操作**: JIS 配列でも、同じキー位置で動きます (物理キーで割り当てています)。
 - **日本語のコマンド一覧**: Ctrl+Shift+F12 で開きます。ローマ字 (`tabu`、`pein`) や英語 (`new_tab`) で絞り込めます。
@@ -32,14 +32,14 @@ English: [README.en.md](README.en.md)
 **無ければ、インストーラーが winget で入れるかを尋ねます。**
 
 1. [最新版のリリース](https://github.com/ringo7pie/wezterm-kitty-ja/releases/latest) の **Assets** から、配布用 ZIP をダウンロードして展開します。
-   v1.1.0 のファイル名は [wezterm-kitty-ja-1.1.0.zip](https://github.com/ringo7pie/wezterm-kitty-ja/releases/download/v1.1.0/wezterm-kitty-ja-1.1.0.zip) です。
+   v1.2.0 のファイル名は [wezterm-kitty-ja-1.2.0.zip](https://github.com/ringo7pie/wezterm-kitty-ja/releases/download/v1.2.0/wezterm-kitty-ja-1.2.0.zip) です。
 2. 展開したフォルダの **`install.cmd` をダブルクリック**します。
    Windows の確認画面 (SmartScreen) が出たら、「詳細情報」→「実行」を選びます。
 3. 画面の質問に答えます。最後に「WezTerm を起動しますか」と尋ねるので、`Y` を入力して Enter を押すと WezTerm の窓が開きます。
 
 Ctrl+Shift+F12 を押すと、使えるコマンドの一覧が開きます。
 
-> ZIP を検証したいときは、同じ Assets の [wezterm-kitty-ja-1.1.0.zip.sha256](https://github.com/ringo7pie/wezterm-kitty-ja/releases/download/v1.1.0/wezterm-kitty-ja-1.1.0.zip.sha256) と、PowerShell の `Get-FileHash -Algorithm SHA256 <zip>` の結果を比べます。
+> ZIP を検証したいときは、同じ Assets の [wezterm-kitty-ja-1.2.0.zip.sha256](https://github.com/ringo7pie/wezterm-kitty-ja/releases/download/v1.2.0/wezterm-kitty-ja-1.2.0.zip.sha256) と、PowerShell の `Get-FileHash -Algorithm SHA256 <zip>` の結果を比べます。
 
 ### 動作確認の環境
 
